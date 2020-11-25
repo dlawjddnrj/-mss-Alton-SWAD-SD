@@ -1,0 +1,72 @@
+###########################################################
+@startuml Alton-Init-B1-Loading SFCCollection.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Loading SFCCollection
+'----------------------------------------------------------
+'==========================================================
+
+participant "[AltonService]" as AltonService
+
+box
+  participant "[SFC Interface]" as SFCCollection
+end box
+
+box [SFC Plugin]
+  entity "SFC dll" as sfcdll
+  participant ":SFCPlugInImpl" as SFCPlugIn <<SFCPlugIn>>
+end box
+
+'==========================================================
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+AltonService -> SFCCollection ++ : loadSFC(SFCConfigurationInfoList) : bool
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] Loading SFCCollection
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+loop #transparent sfc : SFCConfigurationInfoList
+  SFCCollection -> SFCCollection : sfcPath : string = sfc.mPlugInPath
+ 
+    group $COLOR_SEQ_BLOCK load SFCPlugin from sfc dll
+      SFCCollection -> sfcdll : <<dlopen>> sfcPath
+      SFCCollection -> sfcdll : loadSymbol<SFCPlugIn* (void)>(mPlugInHandle, "getSFCPlugInInstance")
+      SFCCollection -> sfcdll ++ : extern "C" getSFCPlugInInstance()
+        create SFCPlugIn
+        sfcdll --> SFCPlugIn ++ : <<instantiate>> SFCPlugInImpl()
+        return SFCPlugIn
+      return SFCPlugIn*
+    end group
+  
+    group $COLOR_SEQ_BLOCK set callback for AltonService I/F
+      SFCCollection -> SFCPlugIn : setSubscribeFunction(function : SubscribeFunction = &[SFC Interface]::subscribe())
+      SFCCollection -> SFCPlugIn : setUnsubscribeFunction(function : UnsubscribeFunction = &[SFC Interface]::unsubscribe())
+      SFCCollection -> SFCPlugIn : setGetNodeFunction(function : GetNodeFunction = &[SFC Interface]::getNode())
+      SFCCollection -> SFCPlugIn : setGetSignalFunction(function : GetSignalFunction = &[SFC Interface]::getSignal())
+      SFCCollection -> SFCPlugIn : setIsNodeExistsFunction(function : IsNodeExistsFunction = &[SFC Interface]::isNodeExists())
+      SFCCollection -> SFCPlugIn : setUpdateSignalValuesFunction(function : UpdateSignalsFunction = &[SFC Interface]::updateSignalValues())
+      SFCCollection -> SFCPlugIn : setSetSignalsFunction(function : SetSignalsFunction = &[SFC Interface]::setSignals())
+    end group
+    
+    group $COLOR_SEQ_BLOCK compose client ID
+      SFCCollection -> SFCPlugIn : sfcName = getSFCName()
+      SFCCollection -> SFCCollection : ClientId : string = "SFC" + sfcName + "@" + pointer address
+    end group
+    
+
+end loop
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+' ~ [SD] Loading SFCCollection
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+return bool (SFCPlugIn count loaded != 0)
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+@enduml
+###########################################################
+

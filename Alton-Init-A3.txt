@@ -1,0 +1,59 @@
+###########################################################
+@startuml Alton-Init-A3-Starting AltonService.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Starting AltonService
+'----------------------------------------------------------
+'==========================================================
+
+participant ":Application" as framework <<serviceframework>>
+!define cApplication framework
+!define mServices framework
+  '<<vector<unique_ptr<Service> > >>
+  
+'''''''''''' ipc
+participant ":RPC" as RPC <<librpc>>
+
+'''''''''''''''''''''''''''''''''''''
+box
+'''''''''''''''''''''''''''''''''''''
+
+participant "[AltonServiceProxy]" as AltonServiceProxy <<protobuf::Service>>
+'participant "mProxy:AltonServiceProxy" as AltonServiceProxy <<shared_ptr>> <<protobuf::Service>> <<HVehicleSignalModelService>> <<RPC::Watcher>>
+
+participant "[AltonService]" as AltonService <<serviceframework::Service>>
+!define mConfiguration "AltonService"
+!define mSignalCache "AltonService"
+'participant ":Configuration" as Configuration
+'participant "mSignalCache:SignalCache" as SignalCache
+
+'''''''''''''''''''''''''''''''''''''
+end box
+'''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+
+  ''''''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_MBLOCK [SD] Starting AltonService
+  ''''''''''''''''''''''''''''''''''''
+  cApplication -> AltonService ++ : onStart()
+  '''''''''''''''''''''''''''''''''''''
+
+        AltonService --> AltonServiceProxy ** : <<instantiate> make_shared<AltonServiceProxy>()
+        AltonService -> RPC : registerRPC(rpc : shared_ptr<protobuf::Service>, const string& rpcName = "")
+        
+  '''''''''''''''''''''''''''''''''''''
+  return
+  ''''''''''''''''''''''''''''''''''''
+  end group
+  ' ~ [SD] Starting AltonService
+  ''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+@enduml
+###########################################################
+

@@ -1,0 +1,114 @@
+###########################################################
+@startuml Alton-IPC-Unsubscription.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] IPC Event : Unsubscription
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' ipc
+participant ":RPC" as RPC <<librpc>>
+  entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
+  entity "request : HSubScription*" as request <<hvehiclesignalmodel::>>
+  entity "response : HResult*" as response <<protobuf::commontypes::>>
+  entity "listener : HSubscriptionListener::Stub" as HSubscriptionListener <<shared_ptr>> <<hvehiclesignalmodel::>>
+  
+box 
+participant "[AltonServiceProxy]" as AltonServiceProxy <<HVehicleSignalModelService>> <<RPC::Watcher>>
+  'entity "mSubscriberList:SubscriberList" as Proxy_mSubscriberList <<unordered_map>> <<string, hvehiclesignalmodel::HSubscriptionListener::Stub>> <<shared_ptr>>
+  'entity "mSubscriptionList" as Proxy_mSubscriptionList <<unordered_map>> <<string, set<SubscriptionId> >>
+  'entity "subscriptionIdSet:set<SubscriptionId>" as subscriptionIdSet
+  !define Proxy_mSubscriberList AltonServiceProxy
+  !define Proxy_mSubscriptionList AltonServiceProxy
+  !define subscriptionIdSet AltonServiceProxy
+end box
+
+'''''''''''' AltonService
+box
+participant "[AltonService]" as AltonService
+end box
+
+
+'==========================================================
+[-> AltonServiceProxy ++ : HVehicleSignalModelService::unsubscribe(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HSubScription*, response : commontypes::HResult*, done : protobuf::Closure*)
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] IPC Event : Unsubscription
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  AltonServiceProxy -> Controller : senderid = GetSender() : uint32_t
+  AltonServiceProxy -> AltonServiceProxy : sender = senderid.to_string()
+  
+  AltonServiceProxy -> request : subscriptionid = subscriptionid() : uint_64_t
+
+
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK unsubscribe from AltonService
+  '''''''''''''''''''''''''''''''''
+  
+    '''''''''''''''''''''''''''''''''
+    AltonServiceProxy -> AltonService : get().\n unsubscribe(clientId = sender : const ClientId&, subscriptionId : const SubscriptionId&) : HResult
+    '''''''''''''''''''''''''''''''''
+    
+  '''''''''''''''''''''''''''''''''
+  end group
+  ' ~ unsubscribe from AltonService
+  '''''''''''''''''''''''''''''''''
+  
+  
+  
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK remove subscription id for the sender 
+  '''''''''''''''''''''''''''''''''
+  critical #transparent //SubscriptionMutex//
+  '''''''''''''''''''''''''''''''''
+  
+    AltonServiceProxy -> Proxy_mSubscriptionList : //get SubscriptionIdSet//\n //for the sender from SubscriptionList//
+
+    ''''''''''
+    opt #transparent SubscriptionIdSet
+      AltonServiceProxy -> AltonServiceProxy : //erease subscriptionid from SubscriptionIdSet//
+    end opt
+    ''''''''''
+  
+    ''''''''''
+    opt #transparent SubscriptionIdSet is empty
+      AltonServiceProxy -> AltonServiceProxy : //erease sender from SubscriptionList//
+      AltonServiceProxy -> AltonServiceProxy ++ : //erease sender from SubscriberList//
+        AltonServiceProxy -> HSubscriptionListener !!
+      return
+    end opt
+    
+  '''''''''''''''''''''''''''''''''
+  end critical
+  '''''''''''''''''''''''''''''''''
+  end group
+  ' ~remove subscription id for the sender 
+  '''''''''''''''''''''''''''''''''
+
+
+
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK response
+    AltonServiceProxy -> response : set_result(static_cast<int64_t>(result))
+  end group
+  '''''''''''''''''''''''''''''''''
+  
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] IPC Event : Unsubscription
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  return
+
+'==========================================================
+@enduml
+###########################################################
+
+
+
+

@@ -1,0 +1,243 @@
+###########################################################
+@startuml Alton-IPC-SetSignal.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] IPC Event : Set Signal
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' ipc
+participant ":RPC" as RPC <<librpc>>
+  entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
+  entity "request:HVehicleSignal*" as request <<hvehiclesignalmodel::>>
+  entity "response:HResult*" as response <<protobuf::commontypes::>>
+  
+box
+  'entity ":SignalValue" as SignalValue
+  !define _SignalValue AltonServiceProxy
+participant "[AltonServiceProxy]" as AltonServiceProxy <<HVehicleSignalModelService>> <<RPC::Watcher>>
+  'entity "mSubscriberList:SubscriberList" as Proxy_mSubscriberList <<unordered_map>> <<string, hvehiclesignalmodel::HSubscriptionListener::Stub>> <<shared_ptr>>
+  'entity "mSubscriptionList" as Proxy_mSubscriptionList <<unordered_map>> <<string, set<SubscriptionId> >>
+  'entity "subscriptionIdSet:set<SubscriptionId>" as subscriptionIdSet
+  !define Proxy_mSubscriberList AltonServiceProxy
+  !define Proxy_mSubscriptionList AltonServiceProxy
+  !define subscriptionIdSet AltonServiceProxy
+end box
+
+'''''''''''' AltonService
+box
+  participant "[AltonService]" as AltonService
+end box
+
+'''''''''''' HAL Interface
+box
+  participant "[HAL Interface]" as HALInterface
+end box
+
+box [HAL Plugin]
+  entity ":VehicleSignalInterfaceImpl" as IVehicleSignalInterface <<IVehicleSignalInterface>>
+end box
+
+'==========================================================
+
+[-> AltonServiceProxy ++ : HVehicleSignalModelService::setSignal(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HVehicleSignal*, response : commontypes::HResult*, done : protobuf::Closure*)
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK IPC Event : Set Signal
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+    
+  AltonServiceProxy -> request : address = nodepath() : const std::string&
+  
+  AltonServiceProxy --> _SignalValue : value : SignalValue
+  
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK HVehicleSignal to SignalValue
+  '''''''''''''''''''''''''''''''''
+    AltonServiceProxy -> request : type = static_cast<HVehicleSignalValueType>(valuetype())
+    AltonServiceProxy -> _SignalValue : //set value with corresponding value of request//\n:  request->uint64_value()\n:  request->int64_value()\n:  request->double_value()\n:  request->string_value()
+  '''''''''''''''''''''''''''''''''
+  end group
+  '''''''''''''''''''''''''''''''''
+  
+  
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK setSignal via AltonService
+  '''''''''''''''''''''''''''''''''
+  AltonServiceProxy -> AltonService ++ : get().\n setSignal(address : const NodeAddress&, value : const SignalValue&) : HResult
+  '''''''''''''''''''''''''''''''''
+  
+     note over AltonService
+        - get signalName from the node of address
+        - publish signal using IVehicleSignalInterface::setSignals via HALInterface
+     end note
+
+     AltonService -> HALInterface ++ : setSignals(signals : const vector<pair<string, uint64_t>>&)
+       HALInterface -> IVehicleSignalInterface ++ : setSignals(signals : const vector<pair<string, uint64_t>>&)
+       return results : vector<HResult>
+     return result : HResult = results.front()
+     
+  '''''''''''''''''''''''''''''''''
+  return result = setSignal()
+  '''''''''''''''''''''''''''''''''
+  end group
+  ' ~ setSignal via AltonService
+  '''''''''''''''''''''''''''''''''
+  
+  group $COLOR_SEQ_BLOCK response
+    AltonServiceProxy -> response : set_result(result : uint64)
+  end group
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ IPC Event : Set Signal
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  return
+
+'==========================================================
+@enduml
+###########################################################
+
+
+    alt type == HVehicleSignalValueType::UINT64
+      AltonServiceProxy -> _SignalValue : value.updateValue(request->uint64_value() : const unsigned long long&)
+    else HVehicleSignalValueType::INT64
+      AltonServiceProxy -> _SignalValue : value.updateValue(request->int64_value() : const signed long long&)
+    else HVehicleSignalValueType::DOUBLE
+      AltonServiceProxy -> _SignalValue : value.updateValue(request->double_value() : const double&)
+    else HVehicleSignalValueType::STRING
+      AltonServiceProxy -> _SignalValue : value.updateValue(request->string_value() : const string&)
+    end alt
+
+
+
+
+###########################################################
+@startuml Alton-IPC-SetSignals.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] IPC Event : Set Signals
+'----------------------------------------------------------
+'==========================================================
+
+
+'participant ":Timer" as TIMER <<serviceframework>>
+
+'''''''''''' ipc
+participant ":RPC" as RPC <<librpc>>
+  entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
+  entity "request:VehicleSignalList*" as request <<hvehiclesignalmodel::>>
+  entity "response:HResultList*" as response <<protobuf::commontypes::>>
+  
+box
+  'entity ":SignalValueList" as SignalValueList
+  !define _SignalValueList AltonServiceProxy
+participant "[AltonServiceProxy]" as AltonServiceProxy <<HVehicleSignalModelService>> <<RPC::Watcher>>
+  'entity "mSubscriberList:SubscriberList" as Proxy_mSubscriberList <<unordered_map>> <<string, hvehiclesignalmodel::HSubscriptionListener::Stub>> <<shared_ptr>>
+  'entity "mSubscriptionList" as Proxy_mSubscriptionList <<unordered_map>> <<string, set<SubscriptionId> >>
+  'entity "subscriptionIdSet:set<SubscriptionId>" as subscriptionIdSet
+  !define Proxy_mSubscriberList AltonServiceProxy
+  !define Proxy_mSubscriptionList AltonServiceProxy
+  !define subscriptionIdSet AltonServiceProxy
+end box
+
+'''''''''''' AltonService
+box
+participant "[AltonService]" as AltonService
+end box
+
+'''''''''''' HAL Interface
+box
+  participant "[HAL Interface]" as HALInterface
+end box
+
+box [HAL Plugin]
+  entity ":VehicleSignalInterfaceImpl" as IVehicleSignalInterface <<IVehicleSignalInterface>>
+end box
+
+'==========================================================
+
+[-> AltonServiceProxy ++ : HVehicleSignalModelService::setSignal(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HSubScription*, response : commontypes::HResult*, done : protobuf::Closure*)
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK IPC Event : Set Signals
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  
+  AltonServiceProxy --> _SignalValueList : signalValueList : SignalValueList
+  note over AltonServiceProxy : <<typedef>> SignalValueList : vector<pair<SignalName, SignalValue>>
+  
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK VehicleSignalList to SignalValueList
+  '''''''''''''''''''''''''''''''''
+  loop #transparent signal : request->signals()
+  
+    AltonServiceProxy -> request : address = signal.nodepath() : const std::string&
+    
+    AltonServiceProxy -> request : type = static_cast<HVehicleSignalValueType>(signal.valuetype())
+    
+    AltonServiceProxy -> _SignalValueList : //add SignalValue converted for the value of request//\n:  make_pair(signal.nodepath(), SignalValue(signal.uint64_value()))\n:  make_pair(signal.nodepath(), SignalValue(signal.int64_value()))\n:  make_pair(signal.nodepath(), SignalValue(signal.double_value()))\n:  make_pair(signal.nodepath(), SignalValue(signal.string_value()))
+    
+  end loop
+  '''''''''''''''''''''''''''''''''
+  end group
+  '''''''''''''''''''''''''''''''''
+  
+  
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK setSignals via AltonService
+  '''''''''''''''''''''''''''''''''
+  AltonServiceProxy -> AltonService ++ : get()\n setSignals(signalValueList : const AddressValueList&) : vector<HResult>
+  '''''''''''''''''''''''''''''''''
+  
+     note over AltonService
+        - get signalName from the node of address
+        - publish signal using IVehicleSignalInterface::setSignals via HALInterface
+     end note
+
+     AltonService -> HALInterface ++ : setSignals(signals : const vector<pair<string, uint64_t>>&) 
+       HALInterface -> IVehicleSignalInterface ++ : setSignals(signals : const vector<pair<string, uint64_t>>&)
+       return vector<HResult>
+     return vector<HResult>
+     
+  '''''''''''''''''''''''''''''''''
+  return results = setSignals()
+  '''''''''''''''''''''''''''''''''
+  end group
+  ' ~ setSignals via AltonService
+  '''''''''''''''''''''''''''''''''
+  
+  group $COLOR_SEQ_BLOCK response
+    loop #transparent result : results
+      AltonServiceProxy -> response : add_results(result : uint64)
+    end loop
+  end group
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ IPC Event : Set Signals
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  return
+
+'==========================================================
+@enduml
+###########################################################
+
+
+    alt type == HVehicleSignalValueType::UINT64
+      AltonServiceProxy -> _SignalValueList : signalValueList.push_back(make_pair(signal.nodepath(), SignalValue(signal.uint64_value())))
+    else HVehicleSignalValueType::INT64
+      AltonServiceProxy -> _SignalValueList : signalValueList.push_back(make_pair(signal.nodepath(), SignalValue(signal.int64_value())))
+    else HVehicleSignalValueType::DOUBLE
+      AltonServiceProxy -> _SignalValueList : signalValueList.push_back(make_pair(signal.nodepath(), SignalValue(signal.double_value())))
+    else HVehicleSignalValueType::STRING
+      AltonServiceProxy -> _SignalValueList : signalValueList.push_back(make_pair(signal.nodepath(), SignalValue(signal.string_value())))
+    end alt

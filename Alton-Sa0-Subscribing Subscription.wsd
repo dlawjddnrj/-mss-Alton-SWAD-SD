@@ -1,0 +1,170 @@
+###########################################################
+@startuml Alton-Sa0-Subscribing Subscription.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Subscribing Subscription
+'----------------------------------------------------------
+'==========================================================
+
+
+participant "GMainContext\nGMainLoop" as glib <<glib/glibmm>>
+!define MainLoop "glib"
+!define MainContext "glib"
+
+participant ":Timer" as TIMER <<serviceframework>>
+
+'''''''''''' subscriber : Proxy, SFC
+box Subscriber to AltonService
+  participant "[Subscriber]" as client <<[AltonServiceProxy]>> <<[SFC Interface]>>
+end box
+
+box Subscription
+  participant ":Subscription" as Subscription
+end box
+
+'''''''''''' AltonService
+box AltonService Core
+participant "[AltonService]" as AltonService
+!define mSignalCache "AltonService"
+end box
+
+
+'==========================================================
+
+
+  client -> Subscription ** : subscription : SubscriptionRef with raw subscription info
+
+  '''''''''''''''''''''''''''''''''
+  client -> AltonService ++ : get()\n subscribe(subscription : const SubscriptionRef&)
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_MBLOCK [SD] Subscribing Subscription
+  '''''''''''''''''''''''''''''''''
+    
+      note over AltonService #gray
+          **TODO** [code change] AltonService.subscribe() use new AltonService::populateSubscription()
+                   instead of old Subscription::populateCache()
+      end note
+        
+      AltonService -> Subscription : clientId = getClientId() : const ClientId&
+      AltonService -> Subscription : nodeAddresses = getNodeAddresses() : const vector<NodeAddress>&
+          
+      ''''' AltonService.populateSubscription '''''
+      group $COLOR_SEQ_BLOCK populate Subscription
+      '''''
+          'ref over AltonService, Subscription
+          '  [SD] Populating Subscription
+          '  - gather information for populating
+          '  - provide info to Subscription
+          '    : map of signalName to NodeAddres
+          '    : current values for subscribing signals
+          '  - add id into managed Context for the client, and set the Context into Subscription
+          'end ref
+          
+          note over AltonService #gray
+              Do ensureClient() & adding id to the context here, which had been called from subscriber
+              : Do job of assignSubscription while doing 'gather signalNodeAddressMap & initialCache'
+              ; assignSubscription = add subscription to ClientContext & (if not duplicated)
+              ; if Subscription is duplicated, cancel following jobs
+              both of which loop with getNodesByAddress, getNodeRelationship
+              : AltonService -> AltonService ++ : assignSubscription(address, subscription)
+          end note
+
+          
+          AltonService -> AltonService : //store Subscription internally by ClientContext//\n: class ClientContext::ClientContext(const ClientId& clientId)\n: clientContext : ClientContext
+          
+          AltonService -> AltonService : //for Signal Data referenced by nodeAddresses,//\n//(1)assign Subscription onto the Nodes of Signal Data//\n//(2)gather signalNodeAddressMap & initialCache//
+          
+          '''''''''
+          group $COLOR_SEQ_BLOCK make Subscription populate
+          AltonService -> Subscription ++ : populateCache(clientContext: weak_ptr<ClientContext>,\n signalNodeAddressMap : map<SignalName, NodeAddress>,\n initialCache : CacheMap) : bool
+          '''''''''
+            Subscription -> Subscription : //copy clientContext , signalNodeAddressMap & initialCache as member//
+            
+            Subscription -> MainContext : g_idle_add(&Subscription::onInitialSubscriptionEmit)
+          '''''''''
+          return result
+          end group
+          '''''''''
+        
+      '''''
+      end group
+      ''''' ~AltonService.populateSubscription '''''
+      
+      note over AltonService #gray : **TODO** [code change] simplify break logic, remove current operation for break
+      
+      ''''' Subscription.start '''''
+      group $COLOR_SEQ_BLOCK let Subscription start
+      '''''
+        AltonService -> Subscription ++ : start() : void
+          Subscription -> Subscription : //check StartedTime//
+          Subscription -> TIMER ++ : //start timer for subscription types//\ntemplate<CLASS, CALLBACK>\n__addTimer__(delay : uint32_t, me : CLASS, callback : CALLBACK) : unsigned int\ncallback = [Subscription]::onValueChangedSamplingTime\n or callback = [Subscription]::onPeriodicUserCycleTime
+            TIMER -> MainLoop : g_timeout_add()
+          return source_id
+        return
+        
+        note over Subscription #gray : design constrain : use HSubscriptionType for ...
+      '''''
+      end group
+      ''''' ~Subscription.start '''''
+
+
+  '''''''''''''''''''''''''''''''''
+  end group
+  ' ~ [SD] Subscribing Subscription
+  '''''''''''''''''''''''''''''''''
+  return result = HResult::OK
+  '''''''''''''''''''''''''''''''''
+
+  ...
+  
+  '''''
+  group $COLOR_SEQ_BLOCK emit cached value at subscription time
+  '''''
+    MainLoop -> Subscription ++ : //callback idle handler//, onInitialSubscriptionEmit()
+      Subscription -> client : //callback SubscriptionEmitter with initialCache//
+    return
+  '''''
+  end group
+  '''''
+'==========================================================
+@enduml
+###########################################################
+
+    note over client
+        <<typedef>> NodeAddress : string
+        <<typedef>> SubscriptionRef : shared_ptr<class Subscription>
+        <<typedef>> Subscription::SubscriptionEmitter : function<void (
+                          const ClientContextRef& clientContext,
+                          const SubscriptionRef& subscription,
+                          const CacheMap& cachedValue)>
+    end note
+
+
+
+
+      AltonService -> Subscription ++ : start()
+      
+        break IsStarted
+          Subscription -> Subscription : log warning "Subscription has already started"
+        end break
+        
+        Subscription -> Subscription : //check started time//
+        Subscription -> Subscription : //set IsStarted flag//
+        
+        alt SubscriptionType == HSubscriptionType::VALUE_CHANGED
+            ' Do nothing
+        else  HSubscriptionType::VALUE_CHANGED_SAMPLING_TIME:
+            Subscription -> Subscription : mTimerID = serviceframework::Timer::addTimer(mCycleTime, this, &Subscription::onValueChangedSamplingTime)
+        else HSubscriptionType::PERIODIC_DB_CYCLETIME:
+            ' do nothing
+        else HSubscriptionType::PERIODIC_USER_CYCLETIME:
+            Subscription -> Subscription : mTimerID = Timer::addTimer(mCycleTime, this, &Subscription::onPeriodicUserCycleTime)
+        else
+            Subscription -> Subscription : log warning "Invalid SubscriptionType"
+        end alt
+
+      return

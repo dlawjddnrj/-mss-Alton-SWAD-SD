@@ -1,0 +1,73 @@
+###########################################################
+@startuml Alton-Init-A1-Creating AltonService.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Creating AltonService
+'----------------------------------------------------------
+'==========================================================
+
+participant ":Application" as framework <<serviceframework>>
+!define cApplication framework
+!define mServices framework
+  
+'''''''''''''''''''''''''''''''''''''
+box
+'''''''''''''''''''''''''''''''''''''
+
+participant "[AltonService]" as AltonService <<serviceframework::Service>>
+!define mConfiguration "AltonService"
+!define mSignalCache "AltonService"
+'participant ":Configuration" as Configuration
+'participant "mSignalCache:SignalCache" as SignalCache
+
+'''''''''''' SFCCollection
+participant "[SFC Interface]" as SFCCollection
+
+'''''''''''' HAL
+participant "[HAL Interface]" as HALInterface
+
+'''''''''''''''''''''''''''''''''''''
+end box
+'''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+
+  ''''''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_MBLOCK [SD] Creating AltonService
+  ''''''''''''''''''''''''''''''''''''
+  cApplication --> AltonService ** : make_unique<[AltonService]>\n(sfcConfigurationDirectory : const std::string&,\n sfcDirectory : const std::string&,\n  vsmConfigurationDirectory : const std::string&,\n halDirectory : const std::string&,\n halName : const std::string&)
+  AltonService ++
+  '''''''''''''''''''''''''''''''''''''
+
+      'AltonService --> SignalCache ** : <<instantiate>>
+      AltonService --> SFCCollection ** : <<instantiate>>
+
+      ''' Calibration
+      AltonService -> AltonService : //load calibration from sfcConfigurationDirectory, sfcDirectory//\n sfcList : SFCConfigurationInfoList\n vsmInfoList : VSMConfigurationInfoList
+
+      ''' [SFCCollection]
+      AltonService -> SFCCollection ++ : loadSFC(sfcList : const SFCConfigurationInfoList&)
+        ref over SFCCollection : [SD] Loading SFCCollection
+      return bool
+
+      ''' [HALInterface]
+      create HALInterface
+      AltonService --> HALInterface ++ : <<instantiate>> HALInterface(halDirectory : const string&, halName : const string&)
+        ref over HALInterface : [SD] Loading HAL
+      return unique_ptr<HALInterface>
+
+  '''''''''''''''''''''''''''''''''''''
+  return service : unique_ptr<Service>
+  ''''''''''''''''''''''''''''''''''''
+  end group
+  ' ~ [SD] Creating AltonService
+  ''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+@enduml
+###########################################################
+

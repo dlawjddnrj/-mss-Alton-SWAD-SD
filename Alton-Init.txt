@@ -1,0 +1,186 @@
+###########################################################
+@startuml Alton-Init.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Alton Booting Up 
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' main
+participant "main()" as main
+participant "GMainContext\nGMainLoop" as glib <<glib/glibmm>>
+!define MainLoop "glib"
+!define MainContext "glib"
+
+participant ":Application" as framework <<serviceframework>>
+!define cApplication framework
+!define mServices framework
+  '<<vector<unique_ptr<Service> > >>
+  
+'''''''''''' ipc
+participant ":RPC" as RPC <<librpc>>
+
+'''''''''''''''''''''''''''''''''''''
+box
+'''''''''''''''''''''''''''''''''''''
+
+'''''''''''' AltonService
+participant "[AltonServiceProxy]" as AltonServiceProxy <<protobuf::Service>>
+'participant "mProxy:AltonServiceProxy" as AltonServiceProxy <<shared_ptr>> <<protobuf::Service>> <<HVehicleSignalModelService>> <<RPC::Watcher>>
+
+participant "[AltonService]" as AltonService <<serviceframework::Service>>
+!define mConfiguration "AltonService"
+!define mSignalCache "AltonService"
+'participant ":Configuration" as Configuration
+'participant "mSignalCache:SignalCache" as SignalCache
+
+'''''''''''' SFCCollection
+participant "[SFC Interface]" as SFCCollection
+
+'''''''''''' HAL
+participant "[HAL Interface]" as HALInterface
+
+'''''''''''''''''''''''''''''''''''''
+end box
+'''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+
+[-> main + : main(argc, argv)
+
+main --> cApplication ** : <<instantiate>>
+
+group $COLOR_SEQ_MBLOCK Calibratable Parameters
+  main -> main : declare calibratable parameters\n: sfcConfigurationDirectory : const std::string&, sfcDirectory : const std::string&,\n  vsmConfigurationDirectory : const std::string&, halDirectory : const std::string&, halName : const std::string&
+  main -> main : load calibration input from execution argument and/or environmental parameter
+end group
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK Create Application
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+main -> cApplication ++ : template <class SERVICE, class... Args>\n registerService(sfcConfigurationDirectory : const std::string&, sfcDirectory : const std::string&,\n  vsmConfigurationDirectory : const std::string&, halDirectory : const std::string&, halName : const std::string&)
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  ''''''''''''''''''''''''''''''''''''
+  '''''''''' Create AltonService '''''
+  ''''''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK Create AltonService
+  cApplication --> AltonService ** : make_unique<[AltonService]>\n(sfcConfigurationDirectory : const std::string&, sfcDirectory : const std::string&,\n  vsmConfigurationDirectory : const std::string&, halDirectory : const std::string&, halName : const std::string&)
+  AltonService ++
+  ''''''''''''''''''''''''''''''''''''
+
+      'AltonService --> SignalCache ** : <<instantiate>>
+      AltonService --> SFCCollection ** : <<instantiate>>
+
+      ''' Calibration
+      AltonService -> AltonService : //load calibration from sfcConfigurationDirectory, sfcDirectory//\n sfcList : SFCConfigurationInfoList\n vsmInfoList : VSMConfigurationInfoList
+
+      ''' [SFCCollection]
+      AltonService -> SFCCollection ++ : loadSFC(sfcList : const SFCConfigurationInfoList&)
+        ref over SFCCollection : [SD] Loading SFCCollection
+      return bool
+
+      ''' [HALInterface]
+      create HALInterface
+      AltonService --> HALInterface ++ : <<instantiate>> HALInterface(halDirectory : const string&, halName : const string&)
+        ref over HALInterface : [SD] Initializing HALInterface 
+      return unique_ptr<HALInterface>
+
+  ''''''''''''''''''''''''''''''''''''
+  return service : unique_ptr<Service>
+  end group
+  ''''''''''''''''''''''''''''''''''''
+  ' ~~~~~~~~~~~~ Create AltonService '
+  ''''''''''''''''''''''''''''''''''''
+
+
+
+  ''''''''''''''''''''''''''''''''''''
+  '''''''''' Initialize AltonService '
+  ''''''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK Initialize AltonService
+  cApplication -> AltonService ++ : onInit()
+  ''''''''''''''''''''''''''''''''''''
+
+      AltonService -> SFCCollection ++ : getSFCOutputAddressSet()
+        ref over SFCCollection : [SD] Getting SFCOutputAddressSet 
+      return sfcAddressSet = set<NodeAddress>
+      
+      AltonService -> mSignalCache : //initialize DataStorage//\n initialize(sfcAddressSet : const set<NodeAddress>&,\n vsmConfigurationInfoList : const VSMConfigurationInfoList&)
+
+      AltonService -> SFCCollection ++ : initialize()
+        ref over SFCCollection : [SD] Initializing SFCCollection
+      return
+
+      AltonService -> HALInterface ++ : registerSignalCallBack(signalCallBack : SignalCallBack = &[AltonService]::onHALSignalValues) : void
+        ref over HALInterface : [SD] Registering SignalCallback
+      return
+      
+      AltonService -> HALInterface ++ : registerSignalTimeoutCallBack(signalTimeoutCallBack : SignalTimeoutCallback = &[AltonService]::onHALSignalTimeOut) : void
+        ref over HALInterface : [SD] Registering SignalTimeoutCallback
+      return
+      
+  ''''''''''''''''''''''''''''''''''''
+  return
+  end group
+  ''''''''''''''''''''''''''''''''''''
+  ' ~~~~~~~~ Initialize AltonService '
+  ''''''''''''''''''''''''''''''''''''
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+cApplication -> mServices : //store// service
+return
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+' ~ Create Application
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK Execute Application
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+main -> cApplication ++ : exec(argc, argv)
+
+create MainLoop
+cApplication -> MainContext : g_idle_add(Application::emitOnStartService)
+cApplication -> MainLoop ++ : <<instantiate>> g_main_loop_new()
+MainLoop --> MainContext : //GMainLoop use GMainContext//
+return loop : GMainLoop
+
+cApplication -> MainLoop ++ : g_main_loop_run(loop)
+
+  MainLoop -> cApplication ++ : //call idle handler//\n : emitOnStartService() : bool
+  group $COLOR_SEQ_BLOCK emitOnStartService
+      cApplication -> AltonService ++ : onStart()
+        AltonService --> AltonServiceProxy ** : <<instantiate> make_shared<AltonServiceProxy>()
+        AltonService -> RPC : registerRPC(rpc : shared_ptr<protobuf::Service>, const string& rpcName = "")
+      return
+  end group
+  return false
+
+  group $COLOR_SEQ_BLOCK GMainLoop Loop
+    MainLoop --> MainLoop : //process loop//
+  end group
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~ Execute Application
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+return exit main loop
+
+' end of exec
+return EX_OK : int
+
+
+' end of main
+return
+'==========================================================
+@enduml
+###########################################################
+

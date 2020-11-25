@@ -1,0 +1,73 @@
+###########################################################
+@startuml Alton-Init-A2-Initializing AltonService.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Initializing AltonService
+'----------------------------------------------------------
+'==========================================================
+
+participant ":Application" as framework <<serviceframework>>
+  !define cApplication framework
+  !define mServices framework
+  
+'''''''''''''''''''''''''''''''''''''
+box
+'''''''''''''''''''''''''''''''''''''
+
+participant "[AltonService]" as AltonService <<serviceframework::Service>>
+  !define mConfiguration "AltonService"
+  !define mSignalCache "AltonService"
+  'participant ":Configuration" as Configuration
+  'participant "mSignalCache:SignalCache" as SignalCache
+
+'''''''''''' SFCCollection
+participant "[SFC Interface]" as SFCCollection
+
+'''''''''''' HAL
+participant "[HAL Interface]" as HALInterface
+
+'''''''''''''''''''''''''''''''''''''
+end box
+'''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+
+  ''''''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_MBLOCK [SD] Initializing AltonService
+  ''''''''''''''''''''''''''''''''''''
+  cApplication -> AltonService ++ : onInit()
+  '''''''''''''''''''''''''''''''''''''
+
+      AltonService -> SFCCollection ++ : getSFCOutputAddressSet()
+        ref over SFCCollection : [SD] Getting SFCOutputAddressSet 
+      return sfcAddressSet = set<NodeAddress>
+      
+      AltonService -> mSignalCache : //initialize DataStorage//\n initialize(sfcAddressSet : const set<NodeAddress>&,\n vsmConfigurationInfoList : const VSMConfigurationInfoList&)
+
+      AltonService -> SFCCollection ++ : initialize()
+        ref over SFCCollection : [SD] Initializing SFCCollection 
+      return
+
+      AltonService -> HALInterface ++ : registerSignalCallBack(signalCallBack : SignalCallBack = &[AltonService]::onHALSignalValues) : void
+        ref over HALInterface : [SD] Registering HAL SignalCallback
+      return
+      
+      AltonService -> HALInterface ++ : registerSignalTimeoutCallBack(signalTimeoutCallBack : SignalTimeoutCallback = &[AltonService]::onHALSignalTimeOut) : void
+        ref over HALInterface : [SD] Registering HAL SignalTimeoutCallback
+      return
+
+  '''''''''''''''''''''''''''''''''''''
+  return
+  ''''''''''''''''''''''''''''''''''''
+  end group
+  ' ~ [SD] Initializing AltonService
+  ''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+@enduml
+###########################################################
+

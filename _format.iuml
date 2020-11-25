@@ -1,0 +1,105 @@
+'===========================================================
+!ifndef _FORMAT_IUML_
+!define _FORMAT_IUML_ 
+'===========================================================
+
+
+
+'===========================================================
+'                                        Document formatting
+'-----------------------------------------------------------
+!function USE_FOOTER_PATH_NAME_DATE()
+  'center footer [source] %filename() (%dirpath()/) \n[date] %date("yyyy.MM.dd") at %date("HH:mm")
+  center footer [source] %filename() \n[date] %date("yyyy.MM.dd") at %date("HH:mm")
+!endfunction
+
+
+'===========================================================
+' basic color
+'-----------------------------------------------------------
+!global $COLOR_SEQ_MBLOCK = "#88ee88"
+!global $COLOR_SEQ_BLOCK = "#bbeebb"
+!global $COLOR_SEQ_FUNC = "#bbbbdd"
+
+
+!global $COLOR_DISABLED = "#666666"
+
+!global $COLOR_WEAKPTR = "#aaaaFF"
+!global $COLOR_WEAKPTR_FONT = "#8888DD"
+
+!global $COLOR_INFO = "#4444AA"
+!global $COLOR_RELATED = "#aa5555"
+!global $COLOR_NA = "#FFDDEE"
+
+!global $COMM_PKG_COLOR = "#aaeebb"
+!global $COLOR_EXTERNAL = "#dddddd"
+!global $COLOR_LOGIC = "#ffcccc"
+!global $COLOR_DATA_STRUCTURE = "#bbeeff"
+!global $COLOR_TYPEDEF = "#lightgray"
+
+!global $NO_DISCARD = "<color blue>{nodiscard}</color>"
+
+'===========================================================
+' package formatting
+'-----------------------------------------------------------
+
+!function $FORMAT_HIDE_PACKAGE($name)
+skinparam package<<$name>> {
+  shadowing false
+  borderColor Transparent
+  backgroundColor Transparent
+  fontColor Transparent
+  stereotypeFontColor Transparent
+}
+!endfunction
+
+
+
+'---------------------------- note
+!define NOTE(title) note as title
+!define _NOTE(title) end note
+
+'---------------------------- color
+!define INCLUDE_FOLDER_COLOER #ddddee
+!define CANDI_INCLUDE_FOLDER_COLOER #dddd88
+
+
+'===========================================================
+' sequence diagram formatting
+'-----------------------------------------------------------
+
+!define THREAD_COLOR #blue
+!define REF_COLOR #gray
+
+'---------------------------- shared_ptr
+!definelong ADD_SHARED_PTR_TO(This, Target)
+  This -[REF_COLOR]-> Target : <color REF_COLOR>**shared_ptr** to</color>
+!enddefinelong
+
+!definelong REMOVE_SHARED_PTR_TO(This, Target)
+  This -[REF_COLOR]-X Target : <color REF_COLOR> remove **shared_ptr** to</color>
+!enddefinelong
+
+'---------------------------- weak_ptr
+!definelong ADD_WEAK_PTR_TO(This, Target)
+  This -[REF_COLOR]-> Target : <color REF_COLOR>weak_ptr to</color>
+!enddefinelong
+
+!definelong REMOVE_WEAK_PTR_TO(This, Target)
+  This  -[REF_COLOR]-X Target : <color REF_COLOR>remove weak_ptr to</color>
+!enddefinelong
+
+'---------------------------- unique_ptr
+!definelong ADD_UNIQUE_PTR_TO(This, Target)
+  This -[REF_COLOR]-> Target : <color REF_COLOR>unique_ptr to</color>
+!enddefinelong
+
+!definelong REMOVE_UNIQUE_PTR_TO(This, Target)
+  This  -[REF_COLOR]-X Target : <color REF_COLOR>remove unique_ptr to</color>
+!enddefinelong
+
+
+
+'===========================================================
+!endif
+'===========================================================

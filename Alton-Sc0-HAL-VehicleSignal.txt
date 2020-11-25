@@ -1,0 +1,114 @@
+###########################################################
+@startuml Alton-Sc0-HAL-VehicleSignal.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] HAL Event : VehicleSignal
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' GMainLoop
+participant "GMainContext\nGMainLoop" as glib <<glib/glibmm>>
+  !define MainLoop "glib"
+  !define MainContext "glib"
+
+participant ":Timer" as TIMER <<serviceframework>>
+
+
+'''''''''''' AltonService
+box
+  participant "[AltonService]" as AltonService
+end box
+
+'''''''''''' HAL
+box HALInterface
+  participant "[HALInterface]" as HALInterface <<unique_ptr>>
+  !define HALInterface_EventQueue "HALInterface"
+  'entity ":HALInterface\n.mSignalChangedEventQueue" as mSignalChangedEventQueue <<list<SignalChangedEvent> >>
+end box
+
+  entity ":VehicleSignalInterfaceImpl" as IVehicleSignalInterface <<unique_ptr>> <<IVehicleSignalInterface>>
+
+'==========================================================
+
+
+
+'==========================================================
+
+note over HALInterface : callback (AltonService::onHALSignalValues()) were set 
+note over IVehicleSignalInterface : callback (HALInterface::onSignalChanged()) were set
+
+IVehicleSignalInterface <-] ++ : signal
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] HAL Event : VehicleSignal
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  HALInterface <- IVehicleSignalInterface ++ : <<callback>> onSignalChanged(signals : vector<pair<string, uint64_t>>& {const})
+
+  alt #transparent calling from main thread
+
+    AltonService <- HALInterface ++ : <<callback>> onHALSignalValues(values : vector<pair<string, uint64_t>>& {const})
+      ref over AltonService
+        [SD] Updating SignalValue
+      end ref
+    return
+      
+  else
+    group $COLOR_SEQ_BLOCK schedule processing with GMainLoop
+    critical #transparent ThreadSwitcherMutex
+      HALInterface -> HALInterface_EventQueue : //emplace_back signals into SignalChangedEventQueue// \nSignalChangedEventQueue : list<SignalChangedEvent>\nSignalChangedEvent : tuple<const vector<pair<string, uint64_t>>>
+      HALInterface -> TIMER ++ : template<CLASS, CALLBACK>\n__addIdle__(me : CLASS, callback : CALLBACK) : unsigned int
+        TIMER -> MainLoop : g_idle_add([])
+      return source_id
+    end critical
+    end group
+  end alt
+    
+return
+
+    
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] HAL Event : VehicleSignal
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  return
+  
+  ...
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] PostProcessing by GMainLoop - Vehicle Signal
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  MainLoop -> TIMER ++ : []
+    TIMER -> HALInterface ++ : <<callback>> //idle handler// = switchThread()
+    
+      group $COLOR_SEQ_BLOCK process SignalChangedEventQueue
+      critical #transparent ThreadSwitcherMutex
+      
+        loop #transparent tupledEvent : SignalChangedEventQueue
+          HALInterface -> HALInterface_EventQueue : get<0>(tupledEvent)
+          AltonService <- HALInterface ++ : <<callback>> onHALSignalValues(values : vector<pair<string, uint64_t>>& {const})
+            ref over AltonService
+              [SD] Updating SignalValue
+            end ref
+          return
+        end loop
+
+        HALInterface -> HALInterface_EventQueue : clear()
+      end critical
+      end group
+      
+    return false
+  return false
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] PostProcessing by GMainLoop - Vehicle Signal
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+@enduml
+###########################################################
+
+

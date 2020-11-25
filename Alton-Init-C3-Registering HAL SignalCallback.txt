@@ -1,0 +1,70 @@
+###########################################################
+@startuml Alton-Init-C3-Registering HAL SignalCallback.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Registering HAL SignalCallback
+'----------------------------------------------------------
+'==========================================================
+
+participant "[AltonService]" as AltonService
+
+box
+  participant "[HAL Interface]" as HALInterface
+end box
+
+box [HAL Plugin]
+  entity ":VehicleSignalInterfaceImpl" as IVehicleSignalInterface <<unique_ptr>> <<IVehicleSignalInterface>>
+end box
+
+'==========================================================
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+AltonService -> HALInterface ++ : registerSignalCallBack(signalCallBack : SignalCallBack) : void
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] Registering HAL SignalCallback
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  HALInterface -> HALInterface : assign signalCallBack as member
+  
+  HALInterface -> IVehicleSignalInterface : registerSignalCallback(pCallback : SignalCallback) : void\npCallback = &[HAL Interface]::onSignalChanged
+  
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] Registering SignalCallback
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+return
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+@enduml
+###########################################################
+
+
+note over AltonService : AltonService is ready to process callback.
+
+'activate AltonService
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK Register Callback onto HALInterface
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  AltonService -> HALInterface + : registerSignalCallBack(signalCallBack : SignalCallBack = &AltonService::onHALSignalValues) : void
+    HALInterface -> HALInterface : set Callback \n mSignalCallBack = signalCallBack
+    HALInterface -> IVehicleSignalInterface : registerSignalCallback(SignalCallback = &HALInterface::onSignalChanged) : void
+    note over IVehicleSignalInterface : ready to post HALSignalValue
+  return
+  
+  AltonService -> HALInterface + : registerSignalTimeoutCallBack(signalTimeoutCallBack : SignalTimeoutCallback = &AltonService::onHALSignalTimeOut) : void
+    HALInterface -> HALInterface : set Callback \n mSignalTimeoutCallBack = signalTimeoutCallBack
+    HALInterface -> IVehicleSignalInterface : registerSignalTimeoutCallback(SignalTimeoutCallback = &HALInterface::onSignalChanged) : void
+    note over IVehicleSignalInterface : ready to post HALSignalTimeOut
+  return
+  
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ Register Callback for HALInterface
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  

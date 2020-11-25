@@ -1,0 +1,96 @@
+###########################################################
+@startuml Alton-Init-C2-Initializing SFCCollection.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Initializing SFCCollection
+'----------------------------------------------------------
+'==========================================================
+
+participant "[AltonService]" as AltonService
+
+participant ":Subscription" as Subscription
+
+box
+  participant "[SFC Interface]" as SFCCollection
+  !define cSFCPlugInInterface "SFCCollection"
+  !define nameSFCInterface [SFC Interface]
+end box
+
+box [SFC Plugin]
+  participant ":SFCPlugInImpl" as SFCPlugIn <<SFCPlugIn>>
+end box
+
+'==========================================================
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+AltonService -> SFCCollection ++ : initialize() : void
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] Initializing SFCCollection
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  break #transparent Initialized == true
+    SFCCollection -> SFCCollection : log warning "SFCCollection initialized already"
+  end break
+  
+  '''''''''''''''''''''''''''''''''
+  loop #transparent sfc : SFCPlugIn loaded
+  '''''''''''''''''''''''''''''''''
+  
+    SFCCollection -> SFCPlugIn ++ : initialize() : void
+    
+      SFCPlugIn -> SFCPlugIn : //do internal initialization//
+      '''''''''''''''''''''''''''''''''
+      loop #transparent [subscriptionId, nodeAddresses, subscriptionType, cycleTime] : subscription set
+      '''''''''''''''''''''''''''''''''
+        cSFCPlugInInterface <- SFCPlugIn ++ : <<callback>>\n subscribe(subscriptionId, nodeAddresses, subscriptionType, cycleTime)
+        
+          note over cSFCPlugInInterface #gray : [TODO] skip ensureClient(ClientId), which will be doen AltonService side
+        
+          '''''''''''''''''''''''''''''''''
+          group $COLOR_SEQ_BLOCK create Subscription with raw data
+            cSFCPlugInInterface -> cSFCPlugInInterface : clientId : ClientId
+            cSFCPlugInInterface -> cSFCPlugInInterface : subscriptionEmitter : SubscriptionEmitter\n = &nameSFCInterface::onSubscription
+            cSFCPlugInInterface -> cSFCPlugInInterface : subscriptionTimeOutEmitter : SubscriptionTimeOutEmitter\n = &nameSFCInterface::onSignalTimeOut
+
+            cSFCPlugInInterface -> Subscription ** : Subscription(clientId : const ClientID&,\n isSFC : const bool& = true,\n subscriptionId : const SubscriptionId&,\n <s>clientContext : const ClientContextRef&,</s>\n nodeAddresses : vector<NodeAddress>,\n subscriptionType : const HSubscriptionType&,\n cycleTime const std::uint64_t&,\n subscriptionEmitter : SubscriptionEmitter,\n subscriptionTimeOutEmitter : SubscriptionTimeOutEmitter)
+          end group
+          '''''''''''''''''''''''''''''''''
+          
+          cSFCPlugInInterface -> AltonService ++ : __get()__
+          return AltonService&
+          
+          '''''''''''''''''''''''''''''''''
+          cSFCPlugInInterface -> AltonService ++ : subscribe(subscription : const SubscriptionRef&) : HResult
+            ref over AltonService
+               [SD] Suscribing Subscription
+            end ref
+          return result = subscribe()
+          '''''''''''''''''''''''''''''''''
+        
+        return result
+      '''''''''''''''''''''''''''''''''
+      end loop
+      '''''''''''''''''''''''''''''''''
+    return
+    
+  '''''''''''''''''''''''''''''''''
+  end loop
+  '''''''''''''''''''''''''''''''''
+
+  SFCCollection -> SFCCollection : set flag Initialized = true
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+' ~ [SD] Initializing SFCCollection
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+return
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+@enduml
+###########################################################
+
+
