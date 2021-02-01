@@ -1,0 +1,101 @@
+###########################################################
+@startuml Alton-Init-B2-Loading HAL.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Loading HAL
+'----------------------------------------------------------
+'==========================================================
+
+participant "[AltonService]" as AltonService
+
+box
+  participant "[HAL Interface]" as HALInterface
+end box
+box [HAL Plugin]
+  entity "HAL dll" as DLL
+  entity "CCOSHAL : VehicleHalModuleImpl" as IVehicleHalModule <<IVehicleHalModule>>
+  entity ":VehicleHalDeviceImpl" as IVehicleHalDevice <<IVehicleHalDevice>>
+  entity ":VehicleSignalInterfaceImpl" as IVehicleSignalInterface <<unique_ptr>> <<IVehicleSignalInterface>>
+end box
+
+'==========================================================
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+AltonService --> HALInterface ** : <<instantiate>> make_unique<HALInterface>\n (halDirectory : const std::string&, halName : const std::string&)
+activate HALInterface
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] Loading HAL
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  HALInterface -> HALInterface : //check main thread id// \n : mMainThreadId = std::this_thread::get_id()
+  
+  HALInterface -> HALInterface : vehicleHalModule : IVehicleHalModule* = nullptr
+  
+  'alt halDirectory is invalid(empty)
+  '  opt
+  '    note over HALInterface : load HAL using HHardwareCommon::getHalModule
+  '    break failed
+  '      HALInterface -> HALInterface : log error "Getting HAL Module Failed."
+  '    end break
+  '  end opt
+  '  
+  'else halDirectory is valid(not empty)
+  group $COLOR_SEQ_BLOCK load HalModule form halDirectory
+  
+    HALInterface -> HALInterface : //make full HAL path// \n halPath = halDirectory + "/" + "lib" + halName + ".so"
+    'HALInterface -> HALInterface ++ : getHalModuleSimple(halPath, &vehicleHalModule) : bool
+      HALInterface -> DLL ++ : dlopen(halPath, RTLD_NOW)
+      return handle
+      
+      HALInterface -> DLL ++ : dlsym(handle, "CCOSHAL")
+      return CCOSHAL : IVehicleHalModule
+      
+      HALInterface -> IVehicleHalModule : setHandle(handle)
+      HALInterface -> HALInterface : vehicleHalModule = CCOSHAL
+    'return true
+    
+    break #transparent failed
+      HALInterface -> HALInterface : log error "Getting HAL Module Failed."
+    end break
+  
+  end group
+  'end alt
+  
+  group $COLOR_SEQ_BLOCK check HalModule version
+    HALInterface -> IVehicleHalModule : getInfo() : const HHardwareModuleInfo &
+    break #transparent HHardwareModuleInfo.deviceApiVersion != DEVICE_API_VERSION_2_0
+      HALInterface -> HALInterface : log error "Device API version mismatch"
+    end break
+  end group
+  
+  group $COLOR_SEQ_BLOCK open HalDevice
+    HALInterface -> IVehicleHalModule ++ : openDevice() : unique_ptr<IVehicleHalDevice>
+      IVehicleHalModule -> IVehicleHalModule : info : ccos::hal::hhalcommon::HHardwareDeviceInfo
+      IVehicleHalModule --> IVehicleHalDevice ** : <<instantiate>> make_unique<VehicleHalIvisDeviceImpl>(info)
+    return vehicleHalDev = openDevice()
+  
+    break #transparent vehicleHalDev == nullptr
+      HALInterface -> HALInterface : log error "Device open failed"
+    end break
+  end group
+  
+  group $COLOR_SEQ_BLOCK get SignalInterface
+    HALInterface -> IVehicleHalDevice ++ : getSignalInterface() : unique_ptr<IVehicleSignalInterface>
+      IVehicleHalDevice --> IVehicleSignalInterface ** : <<instantiate>>\n make_unique<VehicleSignalInterfaceImpl>()
+    return mVehicleSignal = getSignalInterface()
+  end group
+  
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+' ~ [SD] Loading HAL
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+return HALInterface
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+@enduml
+###########################################################
+

@@ -1,0 +1,120 @@
+###########################################################
+@startuml Alton-Components.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title Alton Component Digram
+'----------------------------------------------------------
+
+'==========================================================
+ skinparam linetype polyline
+' skinparam linetype ortho
+
+skinparam componentStyle uml2
+
+'==========================================================
+!global $COMM_PKG_COLOR = "#aaeebb"
+!global $RES_COLOR = "#ddddee"
+'==========================================================
+
+
+'----------------------------------------------------------
+    () "HVehicleSignalModelService" as IService $COLOR_EXTERNAL
+'----------------------------------------------------------
+    
+'==========================================================
+package "Alton" {
+'==========================================================
+
+'----------------------------------------------------------
+together {
+
+    [AltonServiceProxy] as PROXY #white
+    [AltonService] as CORE <<AltonCore>> #ffcccc
+
+    [Subscription] as SUBS #white
+
+    [SFC Interface] as SFC_IF #white
+    [HAL Interface] as HAL_IF <<Vehicle Interface>> #white
+}
+
+
+    IService <-- PROXY : <<implement>
+    PROXY <-- CORE : <<serve>>
+    SUBS <-o CORE : <<manage>>
+    CORE o- SFC_IF
+    CORE o-- HAL_IF
+
+    PROXY ..> SUBS : <<use>>
+    SFC_IF .> SUBS : <<use>>
+'----------------------------------------------------------
+'together {
+'  [Configuration] as CONF <<[AltonService]>> 
+'  [Signal Model] as MODEL <<abstract by nodepath address>> #gray
+'  [Data Storage] as DATA <<[AltonService]>> #gray
+'}
+'----------------------------------------------------------
+
+
+'==========================================================
+}
+'==========================================================
+
+
+'----------------------------------------------------------
+folder "external" as clExt <<library>> {
+    [serviceframework]
+    [hvehiclesignalmodel]
+    [glibmm]
+    [protobuf]
+    [librpc]
+    [json]
+}
+
+'----------------------------------------------------------
+folder "SFC Plugin" as SFC <<dll>> {
+
+    [SFC #1] as SFC01
+}
+
+    () "SFCPluginInterface" as SFCInterface
+
+    SFCInterface - SFC01
+    SFC_IF -( SFCInterface
+    
+'----------------------------------------------------------
+folder "HAL Plugin" <<dll>> as fHAL_IMPL {
+
+  
+  [HAL] as SimulatorHAL <<HAL Plugin>> #lightgreen
+
+}
+
+    () "IVehicleSignalInterface" as ISignal $COLOR_EXTERNAL
+    ISignal -- SimulatorHAL
+    
+    HAL_IF --( ISignal
+    
+    () "IRawSignal" as IRawSignal
+    SimulatorHAL - IRawSignal
+'----------------------------------------------------------
+
+'==========================================================
+
+'----------------------------------------------------------
+folder "Validator" as fValidator <<executable>> $COLOR_EXTERNAL {
+    [Validator] as VAL
+    () "HVehicleSignalModelService" as IService2
+    () "IRawSignal" as IRawSignal2
+    
+    IService2 ).. VAL
+    VAL ..( IRawSignal2
+}
+  
+
+'==========================================================
+@enduml
+###########################################################

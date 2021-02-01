@@ -1,0 +1,110 @@
+###########################################################
+@startuml Alton-Init-A0.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Alton Booting Up 
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' main
+participant "main()" as main
+participant "GMainContext\nGMainLoop" as glib <<glib/glibmm>>
+!define MainLoop "glib"
+!define MainContext "glib"
+
+participant ":Application" as framework <<serviceframework>>
+!define cApplication framework
+!define mServices framework
+  '<<vector<unique_ptr<Service> > >>
+
+
+'==========================================================
+
+''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] Alton Booting Up 
+''''''''''''''''''''''''''''''''''''
+[-> main + : main(argc, argv)
+''''''''''''''''''''''''''''''''''''
+
+
+
+main --> cApplication ** : <<instantiate>>
+
+group $COLOR_SEQ_BLOCK Calibratable Parameters
+  main -> main : declare calibratable parameters\n: sfcConfigurationDirectory : const std::string&, sfcDirectory : const std::string&,\n  vsmConfigurationDirectory : const std::string&, halDirectory : const std::string&, halName : const std::string&
+  main -> main : load calibration input from execution argument and/or environmental parameter
+end group
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_BLOCK Create Application
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+main -> cApplication ++ : template <class SERVICE, class... Args>\n registerService(sfcConfigurationDirectory : const std::string&, sfcDirectory : const std::string&,\n  vsmConfigurationDirectory : const std::string&, halDirectory : const std::string&, halName : const std::string&)
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  group $COLOR_SEQ_BLOCK Create AltonService
+    ref over cApplication : [SD] Creating AltonService
+  end group
+
+  group $COLOR_SEQ_BLOCK Initialize AltonService
+    ref over cApplication : [SD] Initialzing AltonService
+  end group
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+return
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+' ~ Create Application
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_BLOCK Execute Application
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+main -> cApplication ++ : exec(argc, argv)
+
+create MainLoop
+cApplication -> MainContext : g_idle_add(Application::emitOnStartService)
+cApplication -> MainLoop ++ : <<instantiate>> g_main_loop_new()
+MainLoop --> MainContext : //GMainLoop use GMainContext//
+return loop : GMainLoop
+
+cApplication -> MainLoop ++ : g_main_loop_run(loop)
+
+  MainLoop -> cApplication ++ : //call idle handler//\n : emitOnStartService() : bool
+  group $COLOR_SEQ_BLOCK emitOnStartService
+    ref over cApplication : [SD] Starting AltonService
+  end group
+  return false
+
+  group $COLOR_SEQ_BLOCK GMainLoop Loop
+    MainLoop --> MainLoop : //process loop//
+  end group
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ Execute Application
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+return exit main loop
+
+' end of exec
+return EX_OK : int
+
+
+''''''''''''''''''''''''''''''''''''
+' end of main
+return
+''''''''''''''''''''''''''''''''''''
+end group
+' ~ [SD] Alton Booting Up 
+''''''''''''''''''''''''''''''''''''
+'==========================================================
+@enduml
+###########################################################
+

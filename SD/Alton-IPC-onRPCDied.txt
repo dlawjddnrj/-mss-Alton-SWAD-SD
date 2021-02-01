@@ -1,0 +1,91 @@
+###########################################################
+@startuml Alton-IPC-onRPCDied.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] IPC Event : onRPCDied
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' ipc
+participant ":RPC" as RPC <<librpc>>
+  entity "rpc : protobuf::Service" as rpc <<shared_ptr>>
+  
+  entity "listener : HSubscriptionListener::Stub" as HSubscriptionListener <<shared_ptr>> <<hvehiclesignalmodel::>>
+  
+box 
+participant "[AltonServiceProxy]" as AltonServiceProxy <<HVehicleSignalModelService>> <<RPC::Watcher>>
+end box
+
+'''''''''''' AltonService
+box
+participant "[AltonService]" as AltonService
+end box
+
+
+'==========================================================
+RPC -> AltonServiceProxy ++ : RPC::Watcher::onRPCDied(rpc : shared_ptr<protobuf::Service>)
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] IPC Event : onRPCDied
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+critical #transparent //SubscriptionMutex//
+'''''''''''''''''''''''''''''''''
+
+  AltonServiceProxy -> AltonServiceProxy : //find listener of rpc & sender from SubscriberList//
+
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK unsubscribe all subscription for sender
+  '''''''''''''''''''''''''''''''''
+  
+    AltonServiceProxy -> AltonServiceProxy : //get SubscriptionIdSet for the sender from SubscriptionList//
+    
+    '''''''''''''''''''''''''''''''''
+    loop #transparent subscriptionId : SubscriptionIdSet
+    '''''''''''''''''''''''''''''''''
+      AltonServiceProxy -> AltonService : get().\n unsubscribe(clientId = sender : const ClientId&, subscriptionId : const SubscriptionId&) : HResult
+    '''''''''''''''''''''''''''''''''
+    end loop
+    '''''''''''''''''''''''''''''''''
+    
+  '''''''''''''''''''''''''''''''''
+  end group
+  ' ~ unsubscribe from AltonService
+  '''''''''''''''''''''''''''''''''
+  
+  
+  
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK remove listener for the sender 
+  '''''''''''''''''''''''''''''''''
+  
+      AltonServiceProxy -> AltonServiceProxy : //erease sender from SubscriptionList//
+      AltonServiceProxy -> AltonServiceProxy ++ : //erease sender from SubscriberList//
+        AltonServiceProxy -> HSubscriptionListener !!
+      return
+      
+  '''''''''''''''''''''''''''''''''
+  end group
+  ' ~remove listener for the sender 
+  '''''''''''''''''''''''''''''''''
+
+
+'''''''''''''''''''''''''''''''''
+end critical
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] IPC Event : onRPCDied
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  return
+
+'==========================================================
+@enduml
+###########################################################
+
+
+
+

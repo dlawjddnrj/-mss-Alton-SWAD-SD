@@ -1,0 +1,51 @@
+###########################################################
+@startuml Alton-Init-C1-Getting SFCOutputAddressSet.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Getting SFCOutputAddressSet
+'----------------------------------------------------------
+'==========================================================
+
+participant "[AltonService]" as AltonService
+
+box
+  participant "[SFC Interface]" as SFCCollection
+end box
+
+box [SFC Plugin]
+  participant ":SFCPlugInImpl" as SFCPlugIn <<SFCPlugIn>>
+end box
+
+'==========================================================
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+AltonService -> SFCCollection ++ : getSFCOutputAddressSet() : std::set<NodeAddress>
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] Getting SFCOutputAddressSet
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  SFCCollection -> SFCCollection : nodeSet : set<NodeAddress>
+  loop #transparent sfc : SFCPlugIn loaded
+    SFCCollection -> SFCPlugIn ++ : getOutputSignalSet() : set<NodeAddress>
+    return oneSet = getOutputSignalSet()
+    
+    SFCCollection -> SFCCollection : nodeSet.insert(oneSet)
+  end loop
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+' ~ [SD] Getting SFCOutputAddressSet
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+return nodeSet = getSFCOutputAddressSet()
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+'==========================================================
+@enduml
+###########################################################
+
+
+
+

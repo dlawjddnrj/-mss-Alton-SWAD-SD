@@ -10,7 +10,7 @@
 '-----------------------------------------------------------
 !function USE_FOOTER_PATH_NAME_DATE()
   'center footer [source] %filename() (%dirpath()/) \n[date] %date("yyyy.MM.dd") at %date("HH:mm")
-  center footer [source] %filename() \n[date] %date("yyyy.MM.dd") at %date("HH:mm")
+  'center footer [source] %filename() \n[date] %date("yyyy.MM.dd") at %date("HH:mm")
 !endfunction
 
 

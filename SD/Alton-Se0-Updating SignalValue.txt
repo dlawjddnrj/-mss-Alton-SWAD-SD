@@ -1,0 +1,142 @@
+###########################################################
+@startuml Alton-Se0-Updating SignalValue.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Updating SignalValue
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' GMainLoop
+participant "GMainContext\nGMainLoop" as glib <<glib/glibmm>>
+  !define MainLoop "glib"
+  !define MainContext "glib"
+
+participant ":Timer" as TIMER <<serviceframework>>
+
+'''''''''''' subscriber : Proxy, SFC
+box Internal Subscriber
+  participant "[other component]" as client <<[AltonServiceProxy]>> <<[SFC Interface]>>
+end box
+
+participant "subscription" as Subscription <<SubscriptionRef>>
+  
+'''''''''''' AltonService
+box
+  participant ":AltonService" as AltonService
+end box
+
+'''''''''''' publisher : HAL, SFC
+box Signal publisher
+  participant "[other component]" as publisher <<[HALInterface]>> <<[SFC Interface]>>
+end box
+
+'==========================================================
+
+
+
+alt from HAL
+  AltonService <- publisher : [HALInterface] <<callback>> onHALSignalValues(values : const vector<pair<string, uint64_t>>&)
+else from SFC
+  AltonService <- publisher : [SFC Interface] <<callback>> updateSignalValues(values : const vector<pair<string, uint64_t>>&)
+end alt
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] Updating SignalValue
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+    '''''''''''''''''''''''''''''''''
+    activate AltonService
+    'AltonService -> AltonService ++ : template<T> updateSignalValue(values, mSignalCache, mSignalSubscriptionMap)
+    'values : (const vector<pair<string, T>>&, signalCache : const SignalCache&, signalSubscriptionMap unordered_multimap<SignalName, weak_ptr<Subscription>>&)
+    '''''''''''''''''''''''''''''''''
+      AltonService -> AltonService : updatedSubscriptionList : <<set<SubscriptionRef>>>
+      
+      ''''''''''
+      group $COLOR_SEQ_BLOCK gather updatedSubscriptionList
+      ''''''''''
+        loop #transparent valuePair : values
+
+          AltonService -> AltonService : signalName : const auto& = valuePair.first,\nvalue : const auto& = valuePair.second
+          AltonService -> AltonService : //get cachedValue of signalName//\n cachedValue : SignalValueRef
+          AltonService -> AltonService : updated : bool = //update cachedValue with value//
+          AltonService -> AltonService : //get related Nodes of cachedValue//\n nodeList : vector<Node*>
+        
+          loop #transparent node : nodeList
+            AltonService -> AltonService : subscriptions : vector<weak_ptr<Subscription>> = //get Subscriptions assgined on the node//
+            loop #transparent subscription : subscriptions
+              AltonService -> Subscription : type : HSubscriptionType = getSubscriptionType()
+              opt #transparent updated || HSubscriptionType::PERIODIC_DB_CYCLETIME
+                AltonService -> Subscription ++ : changeNodeValue(node, cachedValue)
+                  Subscription -> Subscription : set member flag, mValueChanged = true
+                  Subscription -> Subscription : gather cachedValue into member, mCachedValue
+                return
+                AltonService -> AltonService : gather subscription into updatedSubscriptionList
+              end opt
+            end loop
+          end loop
+      
+        end loop
+      ''''''''''
+      end group
+      ' ~ gather updatedSubscriptionList
+      ''''''''''
+      
+      ''''''''''
+      group $COLOR_SEQ_BLOCK invoke onSignalUpdate for each Subscription
+      ''''''''''
+      loop #transparent subscription : updatedSubscriptionList
+      ''''''''''
+      
+        AltonService -> Subscription ++ : onSignalUpdate() : void
+        '''''''''''''''''''''''
+        group #transparent process onSignalUpdate
+        '''''''''''''''''''''''
+          
+          alt #transparent condition for emitting
+              alt #transparent
+                client <- Subscription ++ : <<callback>> SubscriptionEmitter(clientContext, shared_from_this(), mCachedValue)\n[AltonServiceProxy]::onSignal
+                  ref over client
+                    [SD] IPC : Notifying Signal
+                  end ref
+                return
+              else
+                client <- Subscription : <<callback>> SubscriptionEmitter(clientContext, shared_from_this(), mCachedValue)\n[SFC Interface]::onSubscription
+              end alt
+            
+          else condition for start timer
+                Subscription -> Subscription : delta = remained duration to next cycle
+                Subscription -> TIMER ++ : //start timer for subscription types//\ntemplate<CLASS, CALLBACK>\n__addTimer__(delay : uint32_t, me : CLASS, callback : CALLBACK) : unsigned int\ncallback = [Subscription]::onValueChangedSamplingTime
+            TIMER -> MainLoop : g_timeout_add()
+          return source_id
+          else
+          end alt
+        '''''''''''''''''''''''
+        end group
+        '''''''''''''''''''''''
+        return
+        
+      ''''''''''
+      end loop
+      ''''''''''
+      end group
+      ' ~ invoke onSignalUpdate
+      ''''''''''
+      
+    '''''''''''''''''''''''''''''''''
+    deactivate AltonService
+    'return
+    '''''''''''''''''''''''''''''''''
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] Updating SignalValue
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+@enduml
+###########################################################
+
+

@@ -46,7 +46,7 @@ end box
         ref over SFCCollection : [SD] Getting SFCOutputAddressSet 
       return sfcAddressSet = set<NodeAddress>
       
-      AltonService -> mSignalCache : //initialize DataStorage//\n initialize(sfcAddressSet : const set<NodeAddress>&,\n mVSMConfigurationInfoList : const VSMConfigurationInfoList&)
+      AltonService -> mSignalCache : //initialize DataStorage//\n initialize(sfcAddressSet : const set<NodeAddress>&,\n vsmConfigurationInfoList : const VSMConfigurationInfoList&)
 
       AltonService -> SFCCollection ++ : initialize()
         ref over SFCCollection : [SD] Initializing SFCCollection 

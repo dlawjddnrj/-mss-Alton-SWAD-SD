@@ -1,0 +1,84 @@
+###########################################################
+@startuml Alton-Sf0-Emitting On Timer.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Emitting On Timer
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' GMainLoop
+participant "GMainContext\nGMainLoop" as glib <<glib/glibmm>>
+  !define MainLoop "glib"
+  !define MainContext "glib"
+
+'''''''''''' subscriber : Proxy, SFC
+box Internal Subscriber
+  participant "[other component]" as client <<[AltonServiceProxy]>> <<[SFC Interface]>>
+end box
+
+participant "subscription" as Subscription <<SubscriptionRef>>
+  
+
+'==========================================================
+
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] Emitting on Timer
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  alt #transparent
+
+  '''''
+  group $COLOR_SEQ_BLOCK emit cached value on timer callback, onValueChangedSamplingTime
+  '''''
+    MainLoop -> Subscription ++ : //callback timer handler//, onValueChangedSamplingTime()
+      alt #transparent
+        client <- Subscription ++ : <<callback>> SubscriptionEmitter(clientContext, shared_from_this(), mCachedValue)\n[AltonServiceProxy]::onSignal
+          ref over client
+            [SD] IPC : Notifying Signal
+          end ref
+        return
+      else
+        client <- Subscription : <<callback>> SubscriptionEmitter(clientContext, shared_from_this(), mCachedValue)\n[SFC Interface]::onSubscription
+      end alt
+    return
+  '''''
+  end group
+  '''''
+
+  else
+  
+  '''''
+  group $COLOR_SEQ_BLOCK emit cached value on timer callback, onPeriodicUserCycleTime
+  '''''
+    MainLoop -> Subscription ++ : //callback timer handler//, onPeriodicUserCycleTime()
+      alt #transparent
+        client <- Subscription ++ : <<callback>> SubscriptionEmitter(clientContext, shared_from_this(), mCachedValue)\n[AltonServiceProxy]::onSignal
+          ref over client
+            [SD] IPC : Notifying Signal
+          end ref
+        return
+      else
+        client <- Subscription : <<callback>> SubscriptionEmitter(clientContext, shared_from_this(), mCachedValue)\n[SFC Interface]::onSubscription
+      end alt
+    return
+  '''''
+  end group
+  '''''
+  
+  end alt
+  
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] Emitting on Timer
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+@enduml
+###########################################################
+
+

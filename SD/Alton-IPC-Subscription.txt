@@ -1,0 +1,156 @@
+###########################################################
+@startuml Alton-IPC-Subscription.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] IPC Event : Subscription
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' ipc
+participant ":RPC" as RPC <<librpc>>
+  entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
+  entity "request : HSubScription*" as request <<hvehiclesignalmodel::>>
+  entity "response : HResult*" as response <<protobuf::commontypes::>>
+  entity "listener : HSubscriptionListener::Stub" as HSubscriptionListener <<shared_ptr>> <<hvehiclesignalmodel::>>
+  
+box 
+participant "[AltonServiceProxy]" as AltonServiceProxy <<HVehicleSignalModelService>> <<RPC::Watcher>>
+  'entity "mSubscriberList:SubscriberList" as Proxy_mSubscriberList <<unordered_map>> <<string, hvehiclesignalmodel::HSubscriptionListener::Stub>> <<shared_ptr>>
+  'entity "mSubscriptionList" as Proxy_mSubscriptionList <<unordered_map>> <<string, set<SubscriptionId> >>
+  'entity "subscriptionIdSet:set<SubscriptionId>" as subscriptionIdSet
+  !define Proxy_mSubscriberList AltonServiceProxy
+  !define Proxy_mSubscriptionList AltonServiceProxy
+  !define subscriptionIdSet AltonServiceProxy
+end box
+
+'box Subscription
+  participant ":Subscription" as Subscription
+'end box
+
+
+'''''''''''' AltonService
+box
+participant "[AltonService]" as AltonService
+end box
+
+
+'==========================================================
+
+[-> AltonServiceProxy ++ : HVehicleSignalModelService::subscribe(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HSubScription*, response : commontypes::HResult*, done : protobuf::Closure*)
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] IPC Event : Subscription
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+  
+  'note over AltonServiceProxy, Controller : use RpcController's sender id as subscriber key
+    
+  AltonServiceProxy -> Controller : senderid = GetSender() : uint32_t
+  AltonServiceProxy -> AltonServiceProxy : sender = senderid.to_string()
+
+  '''''''''''''''''''''''''''''''''
+  critical #transparent //SubscriptionMutex//
+  '''''''''''''''''''''''''''''''''
+  
+  '''''''''''''''''''''''''''''''''
+  'AltonServiceProxy -> AltonServiceProxy ++: ensureSubscriberListener(sender : const String&) : void
+  group $COLOR_SEQ_BLOCK ensure ipc subscription is managed for the sender 
+  '''''''''''''''''''''''''''''''''
+    
+    AltonServiceProxy -> AltonServiceProxy : //check if listener is managed for the sender//
+    'AltonServiceProxy -> Proxy_mSubscriberList ++ : find(sender)
+    'return //subscriber//
+    
+    '''''''''
+    opt $COLOR_SEQ_BLOCK //listener// not found
+    '''''''''
+      note over AltonServiceProxy : create subscription listener and watch channel about sender about sender using listener
+      
+      AltonServiceProxy -> RPC ++ : remoteAsStub<hvehiclesignalmodel::HSubscriptionListener::Stub>(controller) : shared_ptr<HSubscriptionListener::Stub>
+        RPC --> HSubscriptionListener ** : <<instantiate>>
+      return listener = remoteAsStub<>(controller)
+
+      AltonServiceProxy -> AltonServiceProxy : //manage listener by sender//\n : insert (sender, listener) into SubscriberList
+      AltonServiceProxy -> AltonServiceProxy : //manage SubscriptionIdSet by sender//\n : insert (sender, SubscriptionIdSet) into SubscriptionList
+      'AltonServiceProxy -> Proxy_mSubscriberList : insert(std::make_pair(sender, listener))
+      'AltonServiceProxy --> subscriptionIdSet ** : <<instantiate>>
+      'AltonServiceProxy -> Proxy_mSubscriptionList : insert(std::make_pair(sender, SubscriptionIdSet()))
+      
+      AltonServiceProxy -> RPC : watch(listener->channel(), shared_from_this() : shared_ptr<Watcher> )
+
+    '''''''''
+    end opt
+    '''''''''
+    
+  '''''''''''''''''''''''''''''''''
+  end group
+  ' ~ensure ipc subscription is managed for the sender 
+  '''''''''''''''''''''''''''''''''
+
+  ''''''''''
+  group $COLOR_SEQ_BLOCK manage subscription id for the sender
+     AltonServiceProxy -> request : subscriptionid = subscriptionid() : uint_64_t
+     AltonServiceProxy -> AltonServiceProxy : //add subscriptionid for the sender//\n : insert (subscriptionid) into SubscriptionIdSet for the sender
+  end group
+  ''''''''''
+
+  '''''''''''''''''''''''''''''''''
+  end critical
+  '''''''''''''''''''''''''''''''''
+
+
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK subscribe to AltonService
+  '''''''''''''''''''''''''''''''''
+  
+    '''''''''''''''''''''''''''''''''
+    group $COLOR_SEQ_BLOCK create Subscription with raw data
+
+      AltonServiceProxy -> AltonServiceProxy : clientId : const ClientID = sender
+      'AltonServiceProxy -> request : subscriptionId = subscriptionid() : ::PROTOBUF_NAMESPACE_ID::uint64
+      AltonServiceProxy -> request : subscriptionType = static_cast<HSubscriptionType>(subsciptiontype())
+      AltonServiceProxy -> request : cycleTime = cycletime() : ::PROTOBUF_NAMESPACE_ID::uint64
+      AltonServiceProxy -> request : nodeAddresses = convert from nodepaths() : const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>&
+      AltonServiceProxy -> AltonServiceProxy : subscriptionEmitter = AltonServiceProxy::onSignal : SubscriptionEmitter
+
+      AltonServiceProxy -> Subscription ** : Subscription(clientId : const ClientID&,\n isSFC : const bool& = false,\n subscriptionId : const SubscriptionId&,\n <s>clientContext : const ClientContextRef&,</s>\n nodeAddresses : vector<NodeAddress>,\n subscriptionType : const HSubscriptionType&,\n cycleTime const std::uint64_t&,\n subscriptionEmitter : SubscriptionEmitter,\n subscriptionTimeOutEmitter : SubscriptionTimeOutEmitter)
+      
+    end group
+    '''''''''''''''''''''''''''''''''
+  
+    '''''''''''''''''''''''''''''''''
+    AltonServiceProxy -> AltonService ++ : get().\n subscribe(subscription : const SubscriptionRef&) : HResult
+      ref over AltonService
+         [SD] Suscribing Subscription
+      end ref
+    return result = subscribe()
+    '''''''''''''''''''''''''''''''''
+    
+  '''''''''''''''''''''''''''''''''
+  end group
+  ' ~ subscribe to AltonService
+  '''''''''''''''''''''''''''''''''
+  
+  '''''''''''''''''''''''''''''''''
+  group $COLOR_SEQ_BLOCK response
+    AltonServiceProxy -> response : set_result(static_cast<int64_t>(result))
+  end group
+  '''''''''''''''''''''''''''''''''
+  
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ IPC Event : Subscription
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  return
+
+'==========================================================
+@enduml
+###########################################################
+
+
+
+

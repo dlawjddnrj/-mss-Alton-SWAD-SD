@@ -1,0 +1,97 @@
+###########################################################
+@startuml Alton-IPC-Notifying Signal.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] IPC : Notifying Signal
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' GMainLoop
+participant "GMainContext\nGMainLoop" as glib <<glib/glibmm>>
+  !define MainLoop "glib"
+  !define MainContext "glib"
+
+'''''''''''' ipc
+participant ":RPC" as RPC <<librpc>>
+  entity "listener : HSubscriptionListener::Stub" as listener <<shared_ptr>> <<hvehiclesignalmodel::>>
+  entity ":VehicleSignalNotification" as notification <<hvehiclesignalmodel::>>
+  entity ":HVehicleSignal*" as HVehicleSignal <<hvehiclesignalmodel::>>
+
+box
+  participant "[AltonServiceProxy]" as AltonServiceProxy <<HVehicleSignalModelService>> <<RPC::Watcher>>
+end box
+
+participant ":Subscription" as Subscription
+  
+
+'==========================================================
+
+  Subscription -> AltonServiceProxy ++: <<callback>> onSignal(clientContext : const ClientContextRef&,\n subscription : const SubscriptionRef&, cachedValue : const CacheMap&)
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] IPC : Notifying Signal
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+      AltonServiceProxy -> AltonServiceProxy : //find HSubscriptionListener managed for the client of clientContext//
+      AltonServiceProxy -> notification ** : notification : hvehiclesignalmodel::VehicleSignalNotification 
+      AltonServiceProxy -> Subscription : id : uint64 = getSubscriptionId() : const SubscriptionId&
+      AltonServiceProxy -> notification : set_subsciptionid(value : uint64 = id)
+      
+      loop #transparent [address, value] : cachedValue
+      
+        AltonServiceProxy -> AltonServiceProxy : type = value->getValueType() : SignalValueType
+        
+        opt #transparent type != SignalValueType::NOT_INITIALIZED
+          AltonServiceProxy -> notification ++ : add_signals() : hvehiclesignalmodel::HVehicleSignal*
+            notification --> HVehicleSignal ** : <<instantiate>>
+          return signal = add_signals()
+          
+          group $COLOR_SEQ_BLOCK SignalValue to HVehicleSignal
+            AltonServiceProxy -> HVehicleSignal : set_nodepath(address)
+            AltonServiceProxy -> HVehicleSignal : set_valuetype( valuetype : uint64 = //corresponding HVehicleSignalValueType of type//)
+            
+            AltonServiceProxy -> HVehicleSignal : //set value for type using corresponding setter//\n:  set_uint64_value(value->getValue<uint64_t>() : uint64)\n:  set_int64_value(value->getValue<int64_t>() : int64)\n:  set_double_value(value->getValue<double>() : double)\n:  set_string_value(value->getValue<string>() : const string&)\n:  set_bool_value(value->getValue<bool>() : bool)
+          end group
+          
+        end opt
+      
+      end loop
+      
+      AltonServiceProxy -> listener : onVehicleSignalReceived(nullptr, &notification, nullptr, nullptr)
+      
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] IPC : Notifying Signal
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+@enduml
+###########################################################
+
+
+          group $COLOR_SEQ_BLOCK SignalValue to HVehicleSignal
+            AltonServiceProxy -> HVehicleSignal : set_nodepath(address)
+            AltonServiceProxy -> AltonServiceProxy : type = value->.getValueType()
+            alt type == SignalValueType::UINT64
+              AltonServiceProxy -> HVehicleSignal : set_valuetype(static_cast<uint64_t>(HVehicleSignalValueType::UINT64) : uint64)
+              AltonServiceProxy -> HVehicleSignal : set_uint64_value(value->getValue<uint64_t>() : uint64)
+            else SignalValueType::INT64
+              AltonServiceProxy -> HVehicleSignal : set_valuetype(static_cast<uint64_t>(HVehicleSignalValueType::UINT64) : uint64)
+              AltonServiceProxy -> HVehicleSignal : set_int64_value(value->getValue<int64_t>() : int64)
+            else SignalValueType::DOUBLE
+              AltonServiceProxy -> HVehicleSignal : set_valuetype(static_cast<uint64_t>(HVehicleSignalValueType::UINT64) : uint64)
+              AltonServiceProxy -> HVehicleSignal : set_double_value(value->getValue<double>() : double)
+            else SignalValueType::STRING
+              AltonServiceProxy -> HVehicleSignal : set_valuetype(static_cast<uint64_t>(HVehicleSignalValueType::UINT64) : uint64)
+              AltonServiceProxy -> HVehicleSignal : set_string_value(value->getValue<string>() : const string&)
+            else SignalValueType::BOOL
+              AltonServiceProxy -> HVehicleSignal : set_valuetype(static_cast<uint64_t>(HVehicleSignalValueType::UINT64) : uint64)
+              AltonServiceProxy -> HVehicleSignal : set_bool_value(value->getValue<bool>() : bool)
+            else SignalValueType::NOT_INITIALIZED
+              AltonServiceProxy -> HVehicleSignal : set_valuetype(static_cast<uint64_t>(HVehicleSignalValueType::MAX) : const unsigned long long&)
+            end alt
+          end group

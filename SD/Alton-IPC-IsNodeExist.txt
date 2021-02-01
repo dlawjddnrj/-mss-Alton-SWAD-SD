@@ -1,0 +1,55 @@
+###########################################################
+@startuml Alton-IPC-IsNodeExist.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] IPC Event : IsNodeExist
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' ipc
+participant ":RPC" as RPC <<librpc>>
+  'entity ": protobuf::RpcController*" as Controller <<librpc::Controller*>>
+  entity "request : NodePath*" as request <<hvehiclesignalmodel::>>
+  entity "response : ResponseIsNodeExist*" as response <<hvehiclesignalmodel::>>
+  'entity ": Closure" as done <<protobuf::>>
+  
+box 
+participant "[AltonServiceProxy]" as AltonServiceProxy <<HVehicleSignalModelService>> <<RPC::Watcher>>
+end box
+
+'''''''''''' AltonService
+box
+participant "[AltonService]" as AltonService
+end box
+
+
+'==========================================================
+[-> AltonServiceProxy ++ : HVehicleSignalModelService::isNodeExist(: protobuf::RpcController*, request : const hvehiclesignalmodel::NodePath*,\n response : hvehiclesignalmodel::ResponseIsNodeExist*, : protobuf::Closure*)
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] IPC Event : IsNodeExist
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  AltonServiceProxy -> request : address = nodepath() : const string&
+  AltonServiceProxy -> AltonService : get()\n .isNodeExists(address : const NodeAddress&) : bool
+  AltonServiceProxy -> response : set_exist(bool)
+  AltonServiceProxy -> response : set_result(int64_t)
+  
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] IPC Event : IsNodeExist
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+  return
+
+'==========================================================
+@enduml
+###########################################################
+
+
+
+

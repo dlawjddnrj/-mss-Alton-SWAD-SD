@@ -19,7 +19,7 @@ participant ":Timer" as TIMER <<serviceframework>>
 
 '''''''''''' subscriber : Proxy, SFC
 box Subscriber to AltonService
-  participant "[Subscriber]" as client <<[AltonServiceProxy]>> <<[SFC Interface]>>
+  participant "[other component]" as client <<[AltonServiceProxy]>> <<[SFC Interface]>>
 end box
 
 box Subscription
@@ -43,6 +43,11 @@ end box
   '''''''''''''''''''''''''''''''''
   group $COLOR_SEQ_MBLOCK [SD] Subscribing Subscription
   '''''''''''''''''''''''''''''''''
+    
+      note over AltonService #gray
+          **TODO** [code change] AltonService.subscribe() use new AltonService::populateSubscription()
+                   instead of old Subscription::populateCache()
+      end note
         
       AltonService -> Subscription : clientId = getClientId() : const ClientId&
       AltonService -> Subscription : nodeAddresses = getNodeAddresses() : const vector<NodeAddress>&
@@ -58,6 +63,16 @@ end box
           '    : current values for subscribing signals
           '  - add id into managed Context for the client, and set the Context into Subscription
           'end ref
+          
+          note over AltonService #gray
+              Do ensureClient() & adding id to the context here, which had been called from subscriber
+              : Do job of assignSubscription while doing 'gather signalNodeAddressMap & initialCache'
+              ; assignSubscription = add subscription to ClientContext & (if not duplicated)
+              ; if Subscription is duplicated, cancel following jobs
+              both of which loop with getNodesByAddress, getNodeRelationship
+              : AltonService -> AltonService ++ : assignSubscription(address, subscription)
+          end note
+
           
           AltonService -> AltonService : //store Subscription internally by ClientContext//\n: class ClientContext::ClientContext(const ClientId& clientId)\n: clientContext : ClientContext
           
@@ -79,6 +94,8 @@ end box
       end group
       ''''' ~AltonService.populateSubscription '''''
       
+      note over AltonService #gray : **TODO** [code change] simplify break logic, remove current operation for break
+      
       ''''' Subscription.start '''''
       group $COLOR_SEQ_BLOCK let Subscription start
       '''''
@@ -89,6 +106,7 @@ end box
           return source_id
         return
         
+        note over Subscription #gray : design constrain : use HSubscriptionType for ...
       '''''
       end group
       ''''' ~Subscription.start '''''

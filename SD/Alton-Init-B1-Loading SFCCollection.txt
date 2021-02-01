@@ -33,8 +33,10 @@ loop #transparent sfc : SFCConfigurationInfoList
  
     group $COLOR_SEQ_BLOCK load SFCPlugin from sfc dll
       SFCCollection -> sfcdll : <<dlopen>> sfcPath
-      SFCCollection -> sfcdll : loadSymbol<SFCPlugIn* (void)>(mPlugInHandle, "getSFCPlugInInstance")
-      SFCCollection -> sfcdll ++ : extern "C" getSFCPlugInInstance()
+      'SFCCollection -> sfcdll : loadSymbol<SFCPlugIn* (void)>(mPlugInHandle, "getSFCPlugInInstance")
+      'SFCCollection -> sfcdll ++ : extern "C" getSFCPlugInInstance()
+      SFCCollection -> sfcdll : dlsym(mPlugInHandle, "getSFCPlugInInstance")
+      SFCCollection -> sfcdll ++ : extern "C" getSFCPlugInInstance() as function<class SFCPlugIn*()>
         create SFCPlugIn
         sfcdll --> SFCPlugIn ++ : <<instantiate>> SFCPlugInImpl()
         return SFCPlugIn
@@ -53,7 +55,7 @@ loop #transparent sfc : SFCConfigurationInfoList
     
     group $COLOR_SEQ_BLOCK compose client ID
       SFCCollection -> SFCPlugIn : sfcName = getSFCName()
-      SFCCollection -> SFCCollection : ClientId : string = "SFC_" + sfcName + "@" + pointer address
+      SFCCollection -> SFCCollection : ClientId : string = "SFC" + sfcName + "@" + pointer address
     end group
     
 
