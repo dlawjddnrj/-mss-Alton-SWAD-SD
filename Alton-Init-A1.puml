@@ -47,7 +47,7 @@ end box
       AltonService --> SFCCollection ** : <<instantiate>>
 
       ''' Calibration
-      AltonService -> AltonService : //load calibration from sfcConfigurationDirectory, sfcDirectory//\n sfcList : mSFCConfigurationInfoList\n vsmInfoList : mVSMConfigurationInfoList
+      AltonService -> AltonService : //load calibration from sfcConfigurationDirectory, sfcDirectory//\n sfcList : SFCConfigurationInfoList\n vsmInfoList : VSMConfigurationInfoList
 
       ''' [SFCCollection]
       AltonService -> SFCCollection ++ : loadSFC(sfcList : const SFCConfigurationInfoList&)
