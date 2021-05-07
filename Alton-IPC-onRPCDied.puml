@@ -12,7 +12,7 @@ Title [SD] IPC Event : onRPCDied
 
 '''''''''''' ipc
 participant ":RPC" as RPC <<librpc>>
-  entity "rpc : protobuf::Service" as rpc <<shared_ptr>>
+  'entity "rpc : protobuf::Service" as rpc <<shared_ptr>>
   
   entity "listener : HSubscriptionListener::Stub" as HSubscriptionListener <<shared_ptr>> <<hvehiclesignalmodel::>>
   

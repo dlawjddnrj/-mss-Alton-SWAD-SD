@@ -6,13 +6,13 @@
 '----------------------------------------------------------
 USE_FOOTER_PATH_NAME_DATE()
 '----------------------------------------------------------
-Title [SD] IPC Event : Set Signal
+Title [SD] IPC Event : setSignal
 '----------------------------------------------------------
 '==========================================================
 
 '''''''''''' ipc
 participant ":RPC" as RPC <<librpc>>
-  entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
+  'entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
   entity "request:HVehicleSignal*" as request <<hvehiclesignalmodel::>>
   entity "response:HResult*" as response <<protobuf::commontypes::>>
   
@@ -44,10 +44,10 @@ end box
 
 '==========================================================
 
-[-> AltonServiceProxy ++ : HVehicleSignalModelService::setSignal(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HVehicleSignal*, response : commontypes::HResult*, done : protobuf::Closure*)
+RPC -> AltonServiceProxy ++ : HVehicleSignalModelService::setSignal(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HVehicleSignal*,\n response : commontypes::HResult*, done : protobuf::Closure*)
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-group $COLOR_SEQ_MBLOCK IPC Event : Set Signal
+group $COLOR_SEQ_MBLOCK IPC Event : setSignal
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
     
   AltonServiceProxy -> request : address = nodepath() : const std::string&
@@ -70,10 +70,13 @@ group $COLOR_SEQ_MBLOCK IPC Event : Set Signal
   AltonServiceProxy -> AltonService ++ : get().\n setSignal(address : const NodeAddress&, value : const SignalValue&) : HResult
   '''''''''''''''''''''''''''''''''
   
-     note over AltonService
+    opt $COLOR_SEQ_BLOCK Actuator type node of address is not available
+        AltonServiceProxy <-- AltonService : result = INVALID
+    end opt
+    note over AltonService
         - get signalName from the node of address
         - publish signal using IVehicleSignalInterface::setSignals via HALInterface
-     end note
+    end note
 
      AltonService -> HALInterface ++ : setSignals(signals : const vector<pair<string, uint64_t>>&)
        HALInterface -> IVehicleSignalInterface ++ : setSignals(signals : const vector<pair<string, uint64_t>>&)
@@ -124,7 +127,7 @@ end group
 '----------------------------------------------------------
 USE_FOOTER_PATH_NAME_DATE()
 '----------------------------------------------------------
-Title [SD] IPC Event : Set Signals
+Title [SD] IPC Event : setSignals
 '----------------------------------------------------------
 '==========================================================
 
@@ -133,7 +136,7 @@ Title [SD] IPC Event : Set Signals
 
 '''''''''''' ipc
 participant ":RPC" as RPC <<librpc>>
-  entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
+  'entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
   entity "request:VehicleSignalList*" as request <<hvehiclesignalmodel::>>
   entity "response:HResultList*" as response <<protobuf::commontypes::>>
   
@@ -165,10 +168,10 @@ end box
 
 '==========================================================
 
-[-> AltonServiceProxy ++ : HVehicleSignalModelService::setSignal(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HSubScription*, response : commontypes::HResult*, done : protobuf::Closure*)
+RPC -> AltonServiceProxy ++ : HVehicleSignalModelService::setSignal(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HSubScription*,\n response : commontypes::HResult*, done : protobuf::Closure*)
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-group $COLOR_SEQ_MBLOCK IPC Event : Set Signals
+group $COLOR_SEQ_MBLOCK IPC Event : setSignals
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
   
   AltonServiceProxy --> _SignalValueList : signalValueList : SignalValueList
@@ -197,10 +200,13 @@ group $COLOR_SEQ_MBLOCK IPC Event : Set Signals
   AltonServiceProxy -> AltonService ++ : get()\n setSignals(signalValueList : const AddressValueList&) : vector<HResult>
   '''''''''''''''''''''''''''''''''
   
-     note over AltonService
+    opt $COLOR_SEQ_BLOCK Actuator type node of address is not available
+        AltonServiceProxy <-- AltonService : result = INVALID
+    end opt
+    note over AltonService
         - get signalName from the node of address
         - publish signal using IVehicleSignalInterface::setSignals via HALInterface
-     end note
+    end note
 
      AltonService -> HALInterface ++ : setSignals(signals : const vector<pair<string, uint64_t>>&) 
        HALInterface -> IVehicleSignalInterface ++ : setSignals(signals : const vector<pair<string, uint64_t>>&)

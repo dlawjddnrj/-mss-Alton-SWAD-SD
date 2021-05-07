@@ -1,0 +1,70 @@
+###########################################################
+@startuml Alton-Se99-Subscription onSignalUpdate.png
+
+!include %dirpath()/_format.iuml
+
+'----------------------------------------------------------
+USE_FOOTER_PATH_NAME_DATE()
+'----------------------------------------------------------
+Title [SD] Subscription cllback on onSignalUpdate
+'----------------------------------------------------------
+'==========================================================
+
+'''''''''''' GMainLoop
+participant "GMainContext\nGMainLoop" as glib <<glib/glibmm>>
+  !define MainLoop "glib"
+  !define MainContext "glib"
+
+participant ":Timer" as TIMER <<serviceframework>>
+
+'''''''''''' subscriber : Proxy, SFC
+box Internal Subscriber
+  participant "[other component]" as client <<[AltonServiceProxy]>> <<[SFC Interface]>>
+end box
+
+participant "subscription" as Subscription <<SubscriptionRef>>
+  
+'''''''''''' AltonService
+box
+  participant ":AltonService" as AltonService
+end box
+'==========================================================
+
+
+
+AltonService -> Subscription ++ : onSignalUpdate() : void
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+group $COLOR_SEQ_MBLOCK [SD] Subscription cllback on onSignalUpdate
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+      
+          alt #transparent condition for emitting
+              alt #transparent
+                client <- Subscription ++ : <<callback>> SubscriptionEmitter(clientContext, shared_from_this(), mCachedValue)\n[AltonServiceProxy]::onSignal
+                  ref over client
+                    [SD] IPC : Notifying Signal
+                  end ref
+                return
+              else
+                client <- Subscription : <<callback>> SubscriptionEmitter(clientContext, shared_from_this(), mCachedValue)\n[SFC Interface]::onSubscription
+              end alt
+            
+          else condition for start timer
+              Subscription -> Subscription : delta = remained duration to next cycle
+              Subscription -> TIMER ++ : //start timer for subscription types//\ntemplate<CLASS, CALLBACK>\n__addTimer__(delay : uint32_t, me : CLASS, callback : CALLBACK) : unsigned int\ncallback = [Subscription]::onValueChangedSamplingTime
+                TIMER -> MainLoop : g_timeout_add()
+              return source_id
+          else
+          
+          end alt
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+end group
+'~~ [SD] Subscription cllback on onSignalUpdate
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+return
+
+@enduml
+###########################################################
+
+

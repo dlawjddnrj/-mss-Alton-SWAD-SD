@@ -1,4 +1,4 @@
-###########################################################
+﻿###########################################################
 @startuml Alton-IPC-Subscription.png
 
 !include %dirpath()/_format.iuml
@@ -6,14 +6,14 @@
 '----------------------------------------------------------
 USE_FOOTER_PATH_NAME_DATE()
 '----------------------------------------------------------
-Title [SD] IPC Event : Subscription
+Title [SD] IPC Event : subscribe
 '----------------------------------------------------------
 '==========================================================
 
 '''''''''''' ipc
 participant ":RPC" as RPC <<librpc>>
   entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
-  entity "request : HSubScription*" as request 
+  entity "request : HSubScription*" as request <<hvehiclesignalmodel::>>
   entity "response : HResult*" as response <<protobuf::commontypes::>>
   entity "listener : HSubscriptionListener::Stub" as HSubscriptionListener <<shared_ptr>> <<hvehiclesignalmodel::>>
   
@@ -40,10 +40,10 @@ end box
 
 '==========================================================
 
-[-> AltonServiceProxy ++ : HVehicleSignalModelService::subscribe(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HSubScription*, response : commontypes::HResult*, done : protobuf::Closure*)
+RPC -> AltonServiceProxy ++ : HVehicleSignalModelService::subscribe(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HSubScription*, response : commontypes::HResult*, done : protobuf::Closure*)
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-group $COLOR_SEQ_MBLOCK [SD] IPC Event : Subscription
+group $COLOR_SEQ_MBLOCK [SD] IPC Event : subscribe
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
   
   'note over AltonServiceProxy, Controller : use RpcController's sender id as subscriber key
@@ -67,7 +67,7 @@ group $COLOR_SEQ_MBLOCK [SD] IPC Event : Subscription
     '''''''''
     opt $COLOR_SEQ_BLOCK //listener// not found
     '''''''''
-      note over AltonServiceProxy : create subscription listener and watch channel about sender about sender using listener
+      note over AltonServiceProxy : create subscription listener and watch channel using listener
       
       AltonServiceProxy -> RPC ++ : remoteAsStub<hvehiclesignalmodel::HSubscriptionListener::Stub>(controller) : shared_ptr<HSubscriptionListener::Stub>
         RPC --> HSubscriptionListener ** : <<instantiate>>
@@ -110,13 +110,14 @@ group $COLOR_SEQ_MBLOCK [SD] IPC Event : Subscription
     group $COLOR_SEQ_BLOCK create Subscription with raw data
 
       AltonServiceProxy -> AltonServiceProxy : clientId : const ClientID = sender
+      ' todo fix typo of HSubScription::subsciptionid
       AltonServiceProxy -> request : subscriptionId = subsciptionid() : ::PROTOBUF_NAMESPACE_ID::uint64
       AltonServiceProxy -> request : subscriptionType = static_cast<HSubscriptionType>(subsciptiontype())
       AltonServiceProxy -> request : cycleTime = cycletime() : ::PROTOBUF_NAMESPACE_ID::uint64
       AltonServiceProxy -> request : nodeAddresses = convert from nodepaths() : const ::PROTOBUF_NAMESPACE_ID::RepeatedPtrField<std::string>&
       AltonServiceProxy -> AltonServiceProxy : subscriptionEmitter = AltonServiceProxy::onSignal : SubscriptionEmitter
 
-      AltonServiceProxy -> Subscription ** : Subscription(clientId : const ClientID&,\n isSFC : const bool& = false,\n subscriptionId : const SubscriptionId&,\n <s>clientContext : const ClientContextRef&,</s>\n nodeAddresses : vector<NodeAddress>,\n subscriptionType : const HSubscriptionType&,\n cycleTime const std::uint64_t&,\n subscriptionEmitter : SubscriptionEmitter,\n subscriptionTimeOutEmitter : SubscriptionTimeOutEmitter)
+      AltonServiceProxy -> Subscription ** : <<create>> subscription : SubscriptionRef\n = make_shared<Subscription>(isSFC : const bool& = false,\n clientId : const ClientID&,\n subscriptionId : const SubscriptionId&,\n nodeAddresses : vector<NodeAddress>,\n subscriptionType : const HSubscriptionType&,\n cycleTime const std::uint64_t&,\n subscriptionEmitter : SubscriptionEmitter,\n subscriptionTimeOutEmitter : SubscriptionTimeOutEmitter)
       
     end group
     '''''''''''''''''''''''''''''''''

@@ -6,7 +6,7 @@
 '----------------------------------------------------------
 USE_FOOTER_PATH_NAME_DATE()
 '----------------------------------------------------------
-Title [SD] IPC Event : Unsubscription
+Title [SD] IPC Event : unsubscribe
 '----------------------------------------------------------
 '==========================================================
 
@@ -34,10 +34,10 @@ end box
 
 
 '==========================================================
-[-> AltonServiceProxy ++ : HVehicleSignalModelService::unsubscribe(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HSubScription*, response : commontypes::HResult*, done : protobuf::Closure*)
+RPC -> AltonServiceProxy ++ : HVehicleSignalModelService::unsubscribe(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::HSubScription*, response : commontypes::HResult*, done : protobuf::Closure*)
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-group $COLOR_SEQ_MBLOCK [SD] IPC Event : Unsubscription
+group $COLOR_SEQ_MBLOCK [SD] IPC Event : unsubscribe
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
   AltonServiceProxy -> Controller : senderid = GetSender() : uint32_t
@@ -67,21 +67,21 @@ group $COLOR_SEQ_MBLOCK [SD] IPC Event : Unsubscription
   critical #transparent //SubscriptionMutex//
   '''''''''''''''''''''''''''''''''
   
-    AltonServiceProxy -> Proxy_mSubscriptionList : //get SubscriptionIdSet//\n //for the sender from SubscriptionList//
+    AltonServiceProxy -> Proxy_mSubscriptionList : //find SubscriptionIdSet//\n //of the sender from SubscriptionList//
 
     ''''''''''
-    opt #transparent SubscriptionIdSet
+    opt #transparent SubscriptionIdSet found
       AltonServiceProxy -> AltonServiceProxy : //erease subscriptionid from SubscriptionIdSet//
+      
+      opt #transparent SubscriptionIdSet is empty
+        AltonServiceProxy -> AltonServiceProxy : //erease sender from SubscriptionList//
+        AltonServiceProxy -> AltonServiceProxy ++ : //erease sender from SubscriberList//
+          AltonServiceProxy -> HSubscriptionListener !!
+        return
+      end opt
+      
     end opt
     ''''''''''
-  
-    ''''''''''
-    opt #transparent SubscriptionIdSet is empty
-      AltonServiceProxy -> AltonServiceProxy : //erease sender from SubscriptionList//
-      AltonServiceProxy -> AltonServiceProxy ++ : //erease sender from SubscriberList//
-        AltonServiceProxy -> HSubscriptionListener !!
-      return
-    end opt
     
   '''''''''''''''''''''''''''''''''
   end critical

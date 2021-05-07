@@ -6,13 +6,13 @@
 '----------------------------------------------------------
 USE_FOOTER_PATH_NAME_DATE()
 '----------------------------------------------------------
-Title [SD] IPC Event : Get Signal
+Title [SD] IPC Event : getSignal
 '----------------------------------------------------------
 '==========================================================
 
 '''''''''''' ipc
 participant ":RPC" as RPC <<librpc>>
-  entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
+  'entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
   entity "request:NodePath*" as request <<hvehiclesignalmodel::>>
   entity "response:ResponseGetSignal*" as response <<hvehiclesignalmodel::>>
   
@@ -46,15 +46,15 @@ end box
 
 '==========================================================
 
-[-> AltonServiceProxy ++ : HVehicleSignalModelService::getSignal(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::NodePath*, response : hvehiclesignalmodel::ResponseGetSignal*, done : protobuf::Closure*)
+RPC -> AltonServiceProxy ++ : HVehicleSignalModelService::getSignal(controller : protobuf::RpcController*, request : const hvehiclesignalmodel::NodePath*,\n response : hvehiclesignalmodel::ResponseGetSignal*, done : protobuf::Closure*)
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-group $COLOR_SEQ_MBLOCK IPC Event : Get Signal
+group $COLOR_SEQ_MBLOCK IPC Event : getSignal
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
     
   AltonServiceProxy -> request : address = nodepath() : const string&
   
-  AltonServiceProxy --> _SignalValue : value : SignalValue
+  AltonServiceProxy --> _SignalValue : value : SignalValue, value type is NOT_INITIALIZED
   AltonServiceProxy --> HVehicleSignal ** : signal : HVehicleSignal* = new HVehicleSignal()
   
   '''''''''''''''''''''''''''''''''
@@ -63,20 +63,23 @@ group $COLOR_SEQ_MBLOCK IPC Event : Get Signal
   AltonServiceProxy -> AltonService ++ : get().\n getSignal(address : const NodeAddress&, value : SignalValue&) {const} : HResult
   '''''''''''''''''''''''''''''''''
   
+    opt $COLOR_SEQ_BLOCK Sensor type node of address is not available
+        AltonServiceProxy <-- AltonService : result = INVALID
+    end opt
     note over AltonService
         - get signalName from the node of address
-        - get signalValue of signalName
+        - get signalValue of the node of address
         - query signal using IVehicleSignalInterface::getSignals via HALInterface
     end note
 
     AltonService -> HALInterface ++ : getSignal(signalName : const string&, rawValue : uint64_t&)
-      HALInterface -> IVehicleSignalInterface ++ : getSignalsignalName : const string&, rawValue : uint64_t&)
+      HALInterface -> IVehicleSignalInterface ++ : getSignal(signalName : const string&, rawValue : uint64_t&)
       return result : HResult
     return result : HResult
    
     note over AltonService
-        - update SignalValue of SignalCache with rawValue
-        - copy SignalValue of SignalCache to value
+        - update signalValue of SignalCache with rawValue
+        - copy signalValue of SignalCache to value
     end note
     
     ' 사양이 뭐지 ? vehicle signal 가져와서 설정 vs  SignalCache 의 값 사용해도 됨
@@ -155,13 +158,13 @@ end group
 '----------------------------------------------------------
 USE_FOOTER_PATH_NAME_DATE()
 '----------------------------------------------------------
-Title [SD] IPC Event : Get Signals
+Title [SD] IPC Event : getSignals
 '----------------------------------------------------------
 '==========================================================
 
 '''''''''''' ipc
 participant ":RPC" as RPC <<librpc>>
-  entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
+  'entity "controller : protobuf::RpcController*" as Controller <<librpc::Controller*>>
   entity "request:NodePathList*" as request <<hvehiclesignalmodel::>>
   entity "response:ResponseGetSignals*" as response <<hvehiclesignalmodels::>>
   
@@ -195,17 +198,17 @@ end box
 
 '==========================================================
 
-[-> AltonServiceProxy ++ : HVehicleSignalModelService::getSignals(controller : protobuf::RpcController*,\n request : const hvehiclesignalmodel::NodePathList*, response : hvehiclesignalmodel::ResponseGetSignals*, done : protobuf::Closure*)
+RPC -> AltonServiceProxy ++ : HVehicleSignalModelService::getSignals(controller : protobuf::RpcController*, request : const hvehiclesignalmodel::NodePathList*,\n response : hvehiclesignalmodel::ResponseGetSignals*, done : protobuf::Closure*)
 
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
-group $COLOR_SEQ_MBLOCK IPC Event : Get Signals
+group $COLOR_SEQ_MBLOCK IPC Event : getSignals
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''
   
   AltonServiceProxy -> request : nodepaths = nodepaths() : const RepeatedPtrField<string>&
 
 loop #transparent address : nodepaths
 
-  AltonServiceProxy --> _SignalValue : value : SignalValue
+  AltonServiceProxy --> _SignalValue : value : SignalValue, value type is NOT_INITIALIZED
   
   '''''''''''''''''''''''''''''''''
   group $COLOR_SEQ_BLOCK getSignal via AltonService
@@ -213,6 +216,9 @@ loop #transparent address : nodepaths
   AltonServiceProxy -> AltonService ++ : get().\n getSignal(address : const NodeAddress&, value : SignalValue&) {const} : HResult
   '''''''''''''''''''''''''''''''''
   
+    opt $COLOR_SEQ_BLOCK Sensor type node of address is not available
+        AltonServiceProxy <-- AltonService : result = INVALID
+    end opt
     note over AltonService
         - get signalName from the node of address
         - get signalValue of signalName
@@ -225,8 +231,8 @@ loop #transparent address : nodepaths
     return result : HResult
    
     note over AltonService
-        - update SignalValue of SignalCache with rawValue
-        - copy SignalValue of SignalCache to value
+        - update signalValue of SignalCache with rawValue
+        - copy signalValue of SignalCache to value
     end note
     
     ' 사양이 뭐지 ? vehicle signal 가져와서 설정 vs  SignalCache 의 값 사용해도 됨
